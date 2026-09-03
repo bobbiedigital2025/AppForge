@@ -13,21 +13,33 @@
  * 6. DevOps Agent → deploy
  * 7. Docs Agent → document
  * 
- * When AI API keys are available (ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY),
- * the agents can call real AI. Currently, they use default/fallback generators
- * that produce realistic boilerplate. To wire in AI, replace the default
- * generator calls with API calls using the system prompts defined in each
- * agent module.
+ * AI provider: OpenRouter (OPENROUTER_API_KEY). When configured, the PM and
+ * Architect agents call real AI (Gemini 2.5 Flash) using the system prompts
+ * in each agent module. On any failure, agents fall back to default
+ * generators so the pipeline always completes.
  */
 
 import { AppForgeOrchestrator } from './orchestrator';
-import { generateDefaultSpecs, type PMAgentOutput } from './pm-agent';
-import { generateDefaultArchitecture, type ArchitectAgentOutput } from './architect-agent';
+import {
+  generateDefaultSpecs,
+  parsePMResponse,
+  buildPMPrompt,
+  PM_AGENT_SYSTEM_PROMPT,
+  type PMAgentOutput,
+} from './pm-agent';
+import {
+  generateDefaultArchitecture,
+  parseArchitectResponse,
+  buildArchitectPrompt,
+  ARCHITECT_AGENT_SYSTEM_PROMPT,
+  type ArchitectAgentOutput,
+} from './architect-agent';
 import {
   generateDefaultDatabaseFiles,
   generateDefaultBackendFiles,
   generateDefaultFrontendFiles,
 } from './codegen-agents';
+import { hasAIKey, callAI } from './ai-client';
 import type { ProjectState, GeneratedFile } from './types';
 
 // In-memory project store (shared with API routes)
@@ -74,23 +86,42 @@ export async function executePipeline(projectId: string, idea: string): Promise<
 
       switch (task.role) {
         // ─── Phase 1: PM Agent ───
-        // When AI API keys are configured, replace generateDefaultSpecs
-        // with a real AI call using PM_AGENT_SYSTEM_PROMPT from pm-agent.ts
         case 'pm': {
-          await delay(1500);
-          const result: PMAgentOutput = generateDefaultSpecs(idea);
+          let result: PMAgentOutput;
+          if (hasAIKey()) {
+            try {
+              const raw = await callAI(PM_AGENT_SYSTEM_PROMPT, buildPMPrompt({ idea }));
+              result = parsePMResponse(raw);
+            } catch (err) {
+              // AI call failed — fall back to defaults so the pipeline keeps moving
+              orchestrator.log('pm', 'warn', `AI call failed, using default specs: ${err instanceof Error ? err.message : 'unknown'}`);
+              result = generateDefaultSpecs(idea);
+            }
+          } else {
+            await delay(1500);
+            result = generateDefaultSpecs(idea);
+          }
           output = { specs: result.specs };
           break;
         }
 
         // ─── Phase 2: Architect Agent ───
-        // When AI API keys are configured, replace generateDefaultArchitecture
-        // with a real AI call using ARCHITECT_AGENT_SYSTEM_PROMPT from architect-agent.ts
         case 'architect': {
-          await delay(2000);
           const state = orchestrator.getState();
           const specs = state.specs!;
-          const result: ArchitectAgentOutput = generateDefaultArchitecture(specs, idea);
+          let result: ArchitectAgentOutput;
+          if (hasAIKey()) {
+            try {
+              const raw = await callAI(ARCHITECT_AGENT_SYSTEM_PROMPT, buildArchitectPrompt({ specs, idea }));
+              result = parseArchitectResponse(raw);
+            } catch (err) {
+              orchestrator.log('architect', 'warn', `AI call failed, using default architecture: ${err instanceof Error ? err.message : 'unknown'}`);
+              result = generateDefaultArchitecture(specs, idea);
+            }
+          } else {
+            await delay(2000);
+            result = generateDefaultArchitecture(specs, idea);
+          }
           output = { architecture: result.architecture };
           break;
         }

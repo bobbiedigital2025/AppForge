@@ -484,7 +484,8 @@ export class AppForgeOrchestrator {
     return summary;
   }
 
-  private log(agent: AgentRole, level: LogEntry['level'], message: string): void {
+  /** Add a log entry. Public so the pipeline executor can log AI fallback warnings. */
+  log(agent: AgentRole, level: LogEntry['level'], message: string): void {
     this.state.logs.push({
       timestamp: Date.now(),
       agent,
