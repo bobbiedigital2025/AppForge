@@ -1,22 +1,25 @@
 /**
  * AppForge AI Client
  *
- * Unified AI calling layer. Uses OpenRouter as the provider —
- * one API key gives access to Gemini 2.5 Flash and dozens of
- * other models with simple credit-based billing.
+ * Unified AI calling layer. Uses the Telnyx Inference API —
+ * OpenAI-compatible chat completions on Telnyx-owned GPUs.
+ * Cheap, simple credit-based billing.
  *
- * When OPENROUTER_API_KEY is not configured, agents fall back
+ * Default model: GLM-5.3-Flash (~$0.08/M input, $0.25/M output tokens).
+ * Override with AI_MODEL env var (e.g. "moonshotai/Kimi-K2.6").
+ *
+ * When TELNYX_API_KEY is not configured, agents fall back
  * to their default generators (boilerplate mode).
  */
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const TELNYX_URL = 'https://api.telnyx.com/v2/ai/chat/completions';
 
-/** Default model — fast and very cheap (~$0.10/M input tokens). */
-const DEFAULT_MODEL = 'google/gemini-2.5-flash';
+/** Default model — fast and very cheap. */
+const DEFAULT_MODEL = process.env.AI_MODEL || 'zai-org/GLM-5.3-Flash';
 
 /** True when an AI provider key is available. */
 export function hasAIKey(): boolean {
-  return !!process.env.OPENROUTER_API_KEY;
+  return !!process.env.TELNYX_API_KEY;
 }
 
 /**
@@ -25,18 +28,16 @@ export function hasAIKey(): boolean {
  * Throws on API errors — callers should catch and fall back.
  */
 export async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.TELNYX_API_KEY;
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured');
+    throw new Error('TELNYX_API_KEY is not configured');
   }
 
-  const response = await fetch(OPENROUTER_URL, {
+  const response = await fetch(TELNYX_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/bobbiedigital2025/AppForge',
-      'X-Title': 'AppForge',
     },
     body: JSON.stringify({
       model: DEFAULT_MODEL,
@@ -51,7 +52,7 @@ export async function callAI(systemPrompt: string, userPrompt: string): Promise<
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`OpenRouter API error (${response.status}): ${errorBody}`);
+    throw new Error(`Telnyx API error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();

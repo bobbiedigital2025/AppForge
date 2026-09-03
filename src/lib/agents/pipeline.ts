@@ -13,10 +13,10 @@
  * 6. DevOps Agent → deploy
  * 7. Docs Agent → document
  * 
- * AI provider: OpenRouter (OPENROUTER_API_KEY). When configured, the PM and
- * Architect agents call real AI (Gemini 2.5 Flash) using the system prompts
- * in each agent module. On any failure, agents fall back to default
- * generators so the pipeline always completes.
+ * AI provider: Telnyx Inference API (TELNYX_API_KEY). When configured, the
+ * PM and Architect agents call real AI (GLM-5.3-Flash by default) using the
+ * system prompts in each agent module. On any failure, agents fall back to
+ * default generators so the pipeline always completes.
  */
 
 import { AppForgeOrchestrator } from './orchestrator';
