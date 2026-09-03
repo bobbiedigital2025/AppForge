@@ -17,6 +17,12 @@ export type AgentRole =
   | 'docs'         // Documentation generation
   | 'healing';     // Self-healing: detect failures, apply fixes
 
+/** Shared array of all agent roles — used by orchestrator for initialization and activity tracking. */
+export const AGENT_ROLES: AgentRole[] = [
+  'pm', 'architect', 'frontend', 'backend', 'database',
+  'testing', 'devops', 'compliance', 'docs', 'healing',
+];
+
 export type TaskStatus =
   | 'pending'
   | 'in_progress'

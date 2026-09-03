@@ -21,6 +21,7 @@ import type {
   OrchestratorConfig,
   LogEntry,
 } from './types';
+import { AGENT_ROLES } from './types';
 
 const DEFAULT_CONFIG: OrchestratorConfig = {
   maxConcurrentAgents: 5,
@@ -72,11 +73,7 @@ export class AppForgeOrchestrator {
     };
 
     // Initialize circuit breakers for all agent roles
-    const roles: AgentRole[] = [
-      'pm', 'architect', 'frontend', 'backend', 'database',
-      'testing', 'devops', 'compliance', 'docs', 'healing',
-    ];
-    for (const role of roles) {
+    for (const role of AGENT_ROLES) {
       this.circuitBreakers.set(role, {
         failures: 0,
         tripped: false,
@@ -472,13 +469,9 @@ export class AppForgeOrchestrator {
    * Get a summary of agent activity for the dashboard.
    */
   getAgentActivity(): Record<AgentRole, { total: number; completed: number; failed: number; inProgress: number }> {
-    const roles: AgentRole[] = [
-      'pm', 'architect', 'frontend', 'backend', 'database',
-      'testing', 'devops', 'compliance', 'docs', 'healing',
-    ];
     const summary = {} as Record<AgentRole, { total: number; completed: number; failed: number; inProgress: number }>;
 
-    for (const role of roles) {
+    for (const role of AGENT_ROLES) {
       const roleTasks = this.state.tasks.filter((t) => t.role === role);
       summary[role] = {
         total: roleTasks.length,

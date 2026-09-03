@@ -35,7 +35,7 @@ Use PostgreSQL syntax (Supabase-compatible). Include proper foreign keys, constr
 Respond ONLY in valid JSON: { "files": [{ "path": "string", "content": "string", "agent": "database", "status": "generated" }] }`;
 
 export function generateDefaultDatabaseFiles(input: DatabaseAgentInput): DatabaseAgentOutput {
-  const { dataModels } = input.architecture;
+  // Architecture data models inform the schema (used when AI is wired in)
 
   const schemaSQL = `-- AppForge Generated Schema
 -- Auto-generated from architecture specification
@@ -179,7 +179,7 @@ Follow Next.js 15 App Router conventions. Use TypeScript.
 Respond ONLY in valid JSON: { "files": [{ "path": "string", "content": "string", "agent": "backend", "status": "generated" }] }`;
 
 export function generateDefaultBackendFiles(input: BackendAgentInput): BackendAgentOutput {
-  const { apiEndpoints } = input.architecture;
+  // Architecture API endpoints inform the routes (used when AI is wired in)
 
   const authSignup = `import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -361,7 +361,6 @@ export function generateDefaultFrontendFiles(input: FrontendAgentInput): Fronten
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
