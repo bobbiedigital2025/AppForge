@@ -39,7 +39,8 @@ import {
   generateDefaultBackendFiles,
   generateDefaultFrontendFiles,
 } from './codegen-agents';
-import { hasAIKey, callAI } from './ai-client';
+import { runTestingAgent, runComplianceAgent, runDocsAgent } from './qa-agents';
+import { hasAIKey, callAI, getAIStatus } from './ai-client';
 import type { ProjectState, GeneratedFile } from './types';
 
 // In-memory project store (shared with API routes)
@@ -165,32 +166,23 @@ export async function executePipeline(projectId: string, idea: string): Promise<
 
         // ─── Phase 4: Testing Agent ───
         case 'testing': {
-          await delay(2000);
-          output = {
-            results: [
-              { testName: 'User signup flow', type: 'e2e', status: 'passed', duration: 340, error: null },
-              { testName: 'Project CRUD', type: 'integration', status: 'passed', duration: 120, error: null },
-              { testName: 'Task validation', type: 'unit', status: 'passed', duration: 15, error: null },
-              { testName: 'Auth middleware', type: 'unit', status: 'passed', duration: 8, error: null },
-              { testName: 'Stripe webhook', type: 'integration', status: 'passed', duration: 95, error: null },
-              { testName: 'Admin access control', type: 'e2e', status: 'passed', duration: 210, error: null },
-            ],
-          };
+          const state = orchestrator.getState();
+          if (!hasAIKey()) await delay(2000);
+          const result = await runTestingAgent(state.specs!, (level, msg) =>
+            orchestrator.log('testing', level, msg)
+          );
+          output = result;
           break;
         }
 
         // ─── Phase 5: Compliance Agent ───
         case 'compliance': {
-          await delay(2000);
-          output = {
-            checks: [
-              { name: 'GDPR', status: 'passed', details: 'Privacy policy, data export, right to deletion' },
-              { name: 'CCPA', status: 'passed', details: 'Do not sell my info, data deletion' },
-              { name: 'WCAG 2.1 AA', status: 'passed', details: 'Semantic HTML, ARIA labels, keyboard nav' },
-              { name: 'OWASP Top 10', status: 'passed', details: 'Input validation, auth checks, CSRF protection' },
-              { name: 'Stripe PCI', status: 'passed', details: 'Stripe-hosted checkout, no card storage' },
-            ],
-          };
+          const state = orchestrator.getState();
+          if (!hasAIKey()) await delay(2000);
+          const result = await runComplianceAgent(state.specs!, (level, msg) =>
+            orchestrator.log('compliance', level, msg)
+          );
+          output = result;
           break;
         }
 
@@ -207,8 +199,10 @@ export async function executePipeline(projectId: string, idea: string): Promise<
 
         // ─── Phase 7: Docs Agent ───
         case 'docs': {
-          await delay(1500);
-          const readme = generateReadme(orchestrator.getState());
+          if (!hasAIKey()) await delay(1500);
+          const readme = await runDocsAgent(orchestrator.getState(), (level, msg) =>
+            orchestrator.log('docs', level, msg)
+          );
           project.files.push({
             path: 'README.md',
             content: readme,
@@ -243,68 +237,6 @@ export async function executePipeline(projectId: string, idea: string): Promise<
   const finalState = orchestrator.getState();
   project.state = finalState;
   store.set(projectId, project);
-}
-
-/**
- * Generate a README from the project state.
- */
-function generateReadme(state: ProjectState): string {
-  const specs = state.specs;
-  const arch = state.architecture;
-
-  return `# ${state.name}
-
-${specs?.summary || 'An AI-generated application.'}
-
-## Target Audience
-${specs?.targetAudience || 'General users'}
-
-## Features
-${(specs?.features || []).map(f => `- **${f.name}** (${f.priority}): ${f.description}`).join('\n')}
-
-## Tech Stack
-${Object.entries(specs?.techStack || {}).map(([k, v]) => `- **${k}**: ${v}`).join('\n')}
-
-## Architecture
-${arch?.overview || 'See architecture documentation'}
-
-### Data Models
-${(arch?.dataModels || []).map(m => `- **${m.name}**: ${m.fields.map(f => f.name).join(', ')}`).join('\n')}
-
-### API Endpoints
-${(arch?.apiEndpoints || []).map(e => `- \`${e.method} ${e.path}\` — ${e.description}`).join('\n')}
-
-### Page Routes
-${(arch?.pageRoutes || []).map(r => `- \`${r.path}\` — ${r.name} (${r.role})`).join('\n')}
-
-## Getting Started
-\`\`\`bash
-npm install
-npm run dev
-\`\`\`
-
-## Testing
-\`\`\`bash
-npm test        # unit tests
-npm run test:e2e # e2e tests
-\`\`\`
-
-## Deployment
-Deploy to Vercel with one click. Set environment variables:
-- \`DATABASE_URL\` — Supabase connection string
-- \`STRIPE_SECRET_KEY\` — Stripe API key
-- \`STRIPE_WEBHOOK_SECRET\` — Stripe webhook secret
-
-## Compliance
-${(specs?.compliance || []).join(', ')}
-
-## Monetization
-${specs?.monetization || 'Freemium with premium subscription'}
-
----
-
-Generated by AppForge — AI-Powered App Factory
-`;
 }
 
 /**
@@ -343,6 +275,7 @@ export function getProject(projectId: string) {
     progress: project.orchestrator.getProgress(),
     agentActivity: project.orchestrator.getAgentActivity(),
     files: project.files,
+    ai: getAIStatus(),
   };
 }
 

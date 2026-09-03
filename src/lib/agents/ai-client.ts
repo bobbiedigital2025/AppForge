@@ -22,6 +22,11 @@ export function hasAIKey(): boolean {
   return !!process.env.TELNYX_API_KEY;
 }
 
+/** AI connection status for display in the dashboard. */
+export function getAIStatus(): { connected: boolean; model: string } {
+  return { connected: hasAIKey(), model: DEFAULT_MODEL };
+}
+
 /**
  * Call the AI with a system prompt and user prompt.
  * Returns the raw text content of the response.
