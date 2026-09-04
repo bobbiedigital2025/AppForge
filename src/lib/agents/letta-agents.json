@@ -1,0 +1,59 @@
+{
+  "description": "Letta agent team for AppForge. Each agent is a persistent Letta agent with its own memory that learns across projects.",
+  "created": "2026-09-04",
+  "agents": {
+    "pm": {
+      "id": "agent-af413617-b3e0-4fac-a8cf-a9fe1c307516",
+      "name": "AppForge-PM",
+      "role": "Product Manager — turns raw ideas into structured product specs",
+      "model": "letta/auto"
+    },
+    "architect": {
+      "id": "agent-fb39099c-b789-4da3-8278-3754a7b5751f",
+      "name": "AppForge-Architect",
+      "role": "System Architect — produces tech stack, routes, API endpoints, data models",
+      "model": "letta/auto"
+    },
+    "database": {
+      "id": "agent-7db41a69-0628-41ac-9c99-b9ed97707b61",
+      "name": "AppForge-Database",
+      "role": "Database engineer — generates PostgreSQL schemas and seed data",
+      "model": "letta/auto"
+    },
+    "backend": {
+      "id": "agent-8970c71a-c8fb-4692-895c-598d90e57c7a",
+      "name": "AppForge-Backend",
+      "role": "Backend engineer — generates Next.js API routes with auth and validation",
+      "model": "letta/auto"
+    },
+    "frontend": {
+      "id": "agent-ab4ff179-37a4-4658-af14-27dc002cec1b",
+      "name": "AppForge-Frontend",
+      "role": "Frontend engineer — generates React pages with Tailwind and shadcn/ui",
+      "model": "letta/auto"
+    },
+    "testing": {
+      "id": "agent-9f7fa748-a25c-4db7-80fa-4b89ffe582af",
+      "name": "AppForge-Testing",
+      "role": "QA engineer — reviews code and produces test results",
+      "model": "letta/auto"
+    },
+    "compliance": {
+      "id": "agent-2c059734-c2ed-45d5-91c5-f04ea0cbf17d",
+      "name": "AppForge-Compliance",
+      "role": "Compliance auditor — checks GDPR, CCPA, COPPA, HIPAA, WCAG, PCI-DSS",
+      "model": "letta/auto"
+    },
+    "devops": {
+      "id": "agent-76661401-cb7a-4f06-ae88-15f373f2bdf4",
+      "name": "AppForge-DevOps",
+      "role": "DevOps engineer — generates deployment configs and CI/CD",
+      "model": "letta/auto"
+    }
+  },
+  "orchestrator": {
+    "id": "agent-2315a071-b32c-4d5c-b621-f0af3d198c60",
+    "name": "Tutor",
+    "role": "Orchestrator — coordinates the agent team, manages the pipeline"
+  }
+}

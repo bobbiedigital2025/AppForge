@@ -8,7 +8,8 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import {
   Brain, Code2, Database, Shield, Rocket, FileText, Wrench,
-  CheckCircle2, XCircle, Loader2, Clock, AlertCircle, Download, Zap, ZapOff
+  CheckCircle2, XCircle, Loader2, Clock, AlertCircle, Download, Zap, ZapOff,
+  FlaskConical, Scale, Eye, List
 } from 'lucide-react';
 
 interface AgentActivity {
@@ -65,6 +66,18 @@ interface ProjectData {
     connected: boolean;
     model: string;
   };
+  testResults: Array<{
+    testName: string;
+    type: string;
+    status: string;
+    duration: number;
+    error: string | null;
+  }> | null;
+  complianceChecks: Array<{
+    name: string;
+    status: string;
+    details: string;
+  }> | null;
 }
 
 const AGENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -103,6 +116,7 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
   const { projectId } = use(params);
   const [data, setData] = useState<ProjectData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'pipeline' | 'preview'>('pipeline');
 
   useEffect(() => {
     let active = true;
@@ -184,6 +198,48 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* View toggle */}
+        <div className="flex gap-1 mb-6 border-b border-white/10">
+          <button
+            onClick={() => setView('pipeline')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              view === 'pipeline' ? 'text-white border-fuchsia-500' : 'text-white/40 border-transparent hover:text-white/70'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            Pipeline
+          </button>
+          <button
+            onClick={() => setView('preview')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              view === 'preview' ? 'text-white border-fuchsia-500' : 'text-white/40 border-transparent hover:text-white/70'
+            }`}
+          >
+            <Eye className="w-4 h-4" />
+            Live Preview
+            {state.status !== 'done' && (
+              <span className="inline-flex items-center gap-1 ml-1 text-xs text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Live Preview view */}
+        {view === 'preview' && (
+          <div className="rounded-xl overflow-hidden border border-white/10 bg-black" style={{ height: 'calc(100vh - 200px)' }}>
+            <iframe
+              src={`/preview/${projectId}`}
+              className="w-full h-full"
+              title="Live Preview"
+              style={{ border: 'none' }}
+            />
+          </div>
+        )}
+
+        {/* Pipeline view */}
+        {view === 'pipeline' && (
+          <>
         {/* Progress bar */}
         <div className="mb-8">
           <Progress value={progress} className="h-3" />
@@ -332,6 +388,75 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
               </Card>
             )}
 
+            {/* Test results */}
+            {data.testResults && data.testResults.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-cyan-400" />
+                    Test Results
+                  </CardTitle>
+                  <CardDescription>
+                    {data.testResults.filter(t => t.status === 'passed').length} passed,
+                    {' '}{data.testResults.filter(t => t.status === 'failed').length} failed,
+                    {' '}{data.testResults.filter(t => t.status === 'skipped').length} skipped
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.testResults.map((test, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm py-1.5 border-b border-white/5 last:border-0">
+                      {test.status === 'passed' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      ) : test.status === 'failed' ? (
+                        <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-white/30 flex-shrink-0" />
+                      )}
+                      <span className="text-white/70">{test.testName}</span>
+                      <Badge variant="default" className="text-xs ml-auto">{test.type}</Badge>
+                      <span className="text-white/40 text-xs tabular-nums">{test.duration}ms</span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Compliance checks */}
+            {data.complianceChecks && data.complianceChecks.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-amber-400" />
+                    Compliance Audit
+                  </CardTitle>
+                  <CardDescription>
+                    {data.complianceChecks.filter(c => c.status === 'passed').length} passed,
+                    {' '}{data.complianceChecks.filter(c => c.status === 'failed').length} failed
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.complianceChecks.map((check, i) => (
+                    <div key={i} className="flex items-start gap-3 text-sm py-1.5 border-b border-white/5 last:border-0">
+                      {check.status === 'passed' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/70 font-medium">{check.name}</span>
+                          <Badge variant={check.status === 'passed' ? 'success' : 'error'} className="text-xs">
+                            {check.status}
+                          </Badge>
+                        </div>
+                        <p className="text-white/40 text-xs mt-0.5">{check.details}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Generated files */}
             {data.files && data.files.length > 0 && (
               <Card>
@@ -447,6 +572,8 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
             </Card>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

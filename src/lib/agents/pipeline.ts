@@ -42,7 +42,7 @@ import {
   runBackendAgent,
   runFrontendAgent,
 } from './codegen-agents';
-import { runTestingAgent, runComplianceAgent, runDocsAgent } from './qa-agents';
+import { runTestingAgent, runComplianceAgent, runDocsAgent, runDevOpsAgent } from './qa-agents';
 import { hasAIKey, callAI, getAIStatus } from './ai-client';
 import type { ProjectState, GeneratedFile } from './types';
 
@@ -191,8 +191,14 @@ export async function executePipeline(projectId: string, idea: string): Promise<
 
         // ─── Phase 6: DevOps Agent ───
         case 'devops': {
-          await delay(2500);
+          const state = orchestrator.getState();
+          if (!hasAIKey()) await delay(2500);
+          const result = await runDevOpsAgent(state.specs!, (level: 'warn', msg: string) =>
+            orchestrator.log('devops', level, msg)
+          );
+          project.files.push(...result.files);
           output = {
+            files: result.files,
             url: `https://appforge-${projectId.slice(5, 13)}.vercel.app`,
             deployment: 'Vercel',
             buildStatus: 'success',
@@ -273,12 +279,19 @@ export function getProject(projectId: string) {
   const project = store.get(projectId);
   if (!project) return null;
 
+  // Extract test results and compliance checks from completed task outputs
+  const state = project.orchestrator.getState();
+  const testTask = state.tasks.find(t => t.role === 'testing' && t.output);
+  const complianceTask = state.tasks.find(t => t.role === 'compliance' && t.output);
+
   return {
-    state: project.orchestrator.getState(),
+    state,
     progress: project.orchestrator.getProgress(),
     agentActivity: project.orchestrator.getAgentActivity(),
     files: project.files,
     ai: getAIStatus(),
+    testResults: (testTask?.output as { results?: unknown[] })?.results || null,
+    complianceChecks: (complianceTask?.output as { checks?: unknown[] })?.checks || null,
   };
 }
 
