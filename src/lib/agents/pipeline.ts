@@ -13,10 +13,10 @@
  * 6. DevOps Agent → deploy
  * 7. Docs Agent → document
  * 
- * AI provider: Telnyx Inference API (TELNYX_API_KEY). When configured, the
- * PM and Architect agents call real AI (GLM-5.3-Flash by default) using the
- * system prompts in each agent module. On any failure, agents fall back to
- * default generators so the pipeline always completes.
+ * AI provider: Telnyx Inference API (TELNYX_API_KEY). When configured, all
+ * agents call real AI (MiniMax-M3 by default) using the system prompts in
+ * each agent module. On any failure, agents fall back to default generators
+ * so the pipeline always completes.
  */
 
 import { AppForgeOrchestrator } from './orchestrator';
@@ -38,6 +38,9 @@ import {
   generateDefaultDatabaseFiles,
   generateDefaultBackendFiles,
   generateDefaultFrontendFiles,
+  runDatabaseAgent,
+  runBackendAgent,
+  runFrontendAgent,
 } from './codegen-agents';
 import { runTestingAgent, runComplianceAgent, runDocsAgent } from './qa-agents';
 import { hasAIKey, callAI, getAIStatus } from './ai-client';
@@ -129,36 +132,36 @@ export async function executePipeline(projectId: string, idea: string): Promise<
 
         // ─── Phase 3: Code Generation (parallel) ───
         case 'database': {
-          await delay(2500);
+          if (!hasAIKey()) await delay(2500);
           const state = orchestrator.getState();
-          const result = generateDefaultDatabaseFiles({
-            architecture: state.architecture!,
-            specs: state.specs!,
-          });
+          const result = await runDatabaseAgent(
+            { architecture: state.architecture!, specs: state.specs! },
+            (level, msg) => orchestrator.log('database', level, msg)
+          );
           project.files.push(...result.files);
           output = { files: result.files };
           break;
         }
 
         case 'backend': {
-          await delay(3000);
+          if (!hasAIKey()) await delay(3000);
           const state = orchestrator.getState();
-          const result = generateDefaultBackendFiles({
-            architecture: state.architecture!,
-            specs: state.specs!,
-          });
+          const result = await runBackendAgent(
+            { architecture: state.architecture!, specs: state.specs! },
+            (level, msg) => orchestrator.log('backend', level, msg)
+          );
           project.files.push(...result.files);
           output = { files: result.files };
           break;
         }
 
         case 'frontend': {
-          await delay(3500);
+          if (!hasAIKey()) await delay(3500);
           const state = orchestrator.getState();
-          const result = generateDefaultFrontendFiles({
-            architecture: state.architecture!,
-            specs: state.specs!,
-          });
+          const result = await runFrontendAgent(
+            { architecture: state.architecture!, specs: state.specs! },
+            (level, msg) => orchestrator.log('frontend', level, msg)
+          );
           project.files.push(...result.files);
           output = { files: result.files };
           break;

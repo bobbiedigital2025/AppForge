@@ -56,11 +56,17 @@ Respond with the JSON architecture only.`;
 export function parseArchitectResponse(response: string): ArchitectAgentOutput {
   let parsed: ArchitectureDoc;
 
+  // Strip markdown code fences that models often wrap around JSON
+  let cleaned = response.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  }
+
   try {
-    parsed = JSON.parse(response);
+    parsed = JSON.parse(cleaned);
   } catch {
     // If JSON parsing fails, try to extract JSON from the response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       parsed = JSON.parse(jsonMatch[0]);
     } else {

@@ -11,6 +11,7 @@
  */
 
 import type { ProjectSpecs, ArchitectureDoc, GeneratedFile, AgentRole } from './types';
+import { hasAIKey, callAI } from './ai-client';
 
 // ─── Database Agent ────────────────────────────────────────────────
 
@@ -23,16 +24,11 @@ export interface DatabaseAgentOutput {
   files: GeneratedFile[];
 }
 
-export const DATABASE_AGENT_SYSTEM_PROMPT = `You are a senior database engineer. Given an architecture document, generate production-ready SQL:
+export const DATABASE_AGENT_SYSTEM_PROMPT = `You are a senior database engineer. Given an architecture document, generate production-ready PostgreSQL (Supabase-compatible) SQL.
 
-1. Schema definition (CREATE TABLE statements with proper constraints)
-2. Row-level security policies
-3. Indexes for performance
-4. Seed data for development
-5. Migration scripts
-
-Use PostgreSQL syntax (Supabase-compatible). Include proper foreign keys, constraints, and indexes.
-Respond ONLY in valid JSON: { "files": [{ "path": "string", "content": "string", "agent": "database", "status": "generated" }] }`;
+Generate 2 files only: schema.sql (CREATE TABLEs, constraints, indexes, RLS policies) and seed.sql (demo data).
+Keep SQL compact — no comments between statements, minimal whitespace.
+Respond ONLY in valid JSON: {"files":[{"path":"db/schema.sql","content":"...","agent":"database","status":"generated"},{"path":"db/seed.sql","content":"...","agent":"database","status":"generated"}]}`;
 
 export function generateDefaultDatabaseFiles(input: DatabaseAgentInput): DatabaseAgentOutput {
   // Architecture data models inform the schema (used when AI is wired in)
@@ -167,16 +163,10 @@ export interface BackendAgentOutput {
   files: GeneratedFile[];
 }
 
-export const BACKEND_AGENT_SYSTEM_PROMPT = `You are a senior backend engineer. Given an architecture document, generate production-ready Next.js API routes and server actions:
+export const BACKEND_AGENT_SYSTEM_PROMPT = `You are a senior backend engineer. Given an architecture document, generate production-ready Next.js 15 App Router API routes in TypeScript.
 
-1. API route handlers for every endpoint in the architecture
-2. Zod validation schemas for all inputs
-3. Server actions for client-side mutations
-4. Auth middleware and role checking
-5. Error handling with proper HTTP status codes
-
-Follow Next.js 15 App Router conventions. Use TypeScript.
-Respond ONLY in valid JSON: { "files": [{ "path": "string", "content": "string", "agent": "backend", "status": "generated" }] }`;
+Generate exactly 3 files: auth/signup, auth/login, and one CRUD resource route. Include Zod validation and basic error handling. Keep each file under 40 lines — compact, no comments.
+Respond ONLY in valid JSON: {"files":[{"path":"src/app/api/auth/signup/route.ts","content":"...","agent":"backend","status":"generated"}]}`;
 
 export function generateDefaultBackendFiles(input: BackendAgentInput): BackendAgentOutput {
   // Architecture API endpoints inform the routes (used when AI is wired in)
@@ -344,16 +334,10 @@ export interface FrontendAgentOutput {
   files: GeneratedFile[];
 }
 
-export const FRONTEND_AGENT_SYSTEM_PROMPT = `You are a senior frontend engineer. Given an architecture document, generate production-ready React components:
+export const FRONTEND_AGENT_SYSTEM_PROMPT = `You are a senior frontend engineer. Given an architecture document, generate production-ready React page components.
 
-1. Page components for every route in the architecture
-2. Layout components (dashboard layout, auth layout)
-3. Reusable UI components (tables, forms, cards, modals)
-4. Client-side data fetching hooks
-5. Responsive design with Tailwind CSS
-
-Follow Next.js 15 App Router conventions. Use TypeScript and shadcn/ui patterns.
-Respond ONLY in valid JSON: { "files": [{ "path": "string", "content": "string", "agent": "frontend", "status": "generated" }] }`;
+Generate 3-5 files max: key pages only. Use Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn/ui patterns. Keep code compact — no excessive comments.
+Respond ONLY in valid JSON: {"files":[{"path":"src/app/.../page.tsx","content":"...","agent":"frontend","status":"generated"}]}`;
 
 export function generateDefaultFrontendFiles(input: FrontendAgentInput): FrontendAgentOutput {
   const loginPage = `'use client';
@@ -660,4 +644,117 @@ export default function AdminPage() {
       { path: 'src/app/(dashboard)/admin/page.tsx', content: adminPage, agent: 'frontend', status: 'generated' },
     ],
   };
+}
+
+// ─── AI-wired runners (call real AI, fall back to defaults) ──────────
+
+type LogFn = (level: 'warn', msg: string) => void;
+
+function extractFiles(response: string, agent: AgentRole): GeneratedFile[] {
+  // Strip markdown code fences (```json ... ```) that models often wrap around JSON
+  let cleaned = response.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  }
+
+  let parsed: { files?: unknown[] };
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) {
+      parsed = JSON.parse(m[0]);
+    } else {
+      throw new Error('Agent returned invalid JSON');
+    }
+  }
+  const files = parsed.files;
+  if (!Array.isArray(files)) throw new Error('Agent response missing files array');
+  return files.map((f: unknown) => {
+    const file = f as Record<string, unknown>;
+    return {
+      path: String(file.path || 'unknown'),
+      content: String(file.content || ''),
+      agent,
+      status: 'generated' as const,
+    };
+  });
+}
+
+export function buildDatabasePrompt(input: DatabaseAgentInput): string {
+  const { architecture, specs } = input;
+  const models = architecture.dataModels
+    .map(m => `${m.name}(${m.fields.map(f => f.name + ':' + f.type).join(', ')})`)
+    .join(', ');
+  return `Project: ${specs.summary}
+Tech stack: ${specs.techStack.database}
+Data models from architecture: ${models}
+
+Generate the complete SQL schema. Include CREATE TABLE statements, constraints, indexes, RLS policies, and seed data. Return JSON with a "files" array where each file has "path", "content", "agent":"database", "status":"generated". Keep it compact — 2-3 files maximum (schema.sql, seed.sql).`;
+}
+
+export async function runDatabaseAgent(
+  input: DatabaseAgentInput,
+  log: LogFn
+): Promise<DatabaseAgentOutput> {
+  if (!hasAIKey()) return generateDefaultDatabaseFiles(input);
+  try {
+    const raw = await callAI(DATABASE_AGENT_SYSTEM_PROMPT, buildDatabasePrompt(input));
+    return { files: extractFiles(raw, 'database') };
+  } catch (err) {
+    log('warn', `AI call failed, using default database files: ${err instanceof Error ? err.message : 'unknown'}`);
+    return generateDefaultDatabaseFiles(input);
+  }
+}
+
+export function buildBackendPrompt(input: BackendAgentInput): string {
+  const { architecture, specs } = input;
+  const endpoints = architecture.apiEndpoints
+    .map(e => `${e.method} ${e.path} — ${e.description}`)
+    .join(', ');
+  return `Project: ${specs.summary}
+Tech stack: ${specs.techStack.backend}
+API endpoints from architecture: ${endpoints}
+
+Generate Next.js 15 App Router API route handlers for every endpoint. Include Zod validation, auth checks, and error handling. Return JSON with a "files" array where each file has "path", "content", "agent":"backend", "status":"generated". Keep it compact — 4-6 files maximum.`;
+}
+
+export async function runBackendAgent(
+  input: BackendAgentInput,
+  log: LogFn
+): Promise<BackendAgentOutput> {
+  if (!hasAIKey()) return generateDefaultBackendFiles(input);
+  try {
+    const raw = await callAI(BACKEND_AGENT_SYSTEM_PROMPT, buildBackendPrompt(input));
+    return { files: extractFiles(raw, 'backend') };
+  } catch (err) {
+    log('warn', `AI call failed, using default backend files: ${err instanceof Error ? err.message : 'unknown'}`);
+    return generateDefaultBackendFiles(input);
+  }
+}
+
+export function buildFrontendPrompt(input: FrontendAgentInput): string {
+  const { architecture, specs } = input;
+  const routes = architecture.pageRoutes
+    .map(r => `${r.path} — ${r.name} (${r.role})`)
+    .join(', ');
+  return `Project: ${specs.summary}
+Tech stack: ${specs.techStack.frontend}
+Page routes from architecture: ${routes}
+
+Generate React page components for every route. Use Next.js 15 App Router, TypeScript, Tailwind CSS, and shadcn/ui patterns. Return JSON with a "files" array where each file has "path", "content", "agent":"frontend", "status":"generated". Keep it compact — 3-5 files maximum.`;
+}
+
+export async function runFrontendAgent(
+  input: FrontendAgentInput,
+  log: LogFn
+): Promise<FrontendAgentOutput> {
+  if (!hasAIKey()) return generateDefaultFrontendFiles(input);
+  try {
+    const raw = await callAI(FRONTEND_AGENT_SYSTEM_PROMPT, buildFrontendPrompt(input));
+    return { files: extractFiles(raw, 'frontend') };
+  } catch (err) {
+    log('warn', `AI call failed, using default frontend files: ${err instanceof Error ? err.message : 'unknown'}`);
+    return generateDefaultFrontendFiles(input);
+  }
 }

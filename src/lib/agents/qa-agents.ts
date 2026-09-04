@@ -94,10 +94,15 @@ export function parseComplianceChecks(response: string): { checks: ComplianceChe
 }
 
 function extractJSON(response: string): { results?: Partial<TestResult>[]; checks?: Partial<ComplianceCheck>[] } {
+  // Strip markdown code fences that models often wrap around JSON
+  let cleaned = response.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  }
   try {
-    return JSON.parse(response);
+    return JSON.parse(cleaned);
   } catch {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
     }

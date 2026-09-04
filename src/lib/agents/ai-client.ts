@@ -41,12 +41,16 @@ export async function callAI(systemPrompt: string, userPrompt: string): Promise<
     throw new Error('TELNYX_API_KEY is not configured');
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000); // 90s max per call
+
   const response = await fetch(TELNYX_URL, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
+    signal: controller.signal,
     body: JSON.stringify({
       model: DEFAULT_MODEL,
       messages: [
@@ -57,7 +61,7 @@ export async function callAI(systemPrompt: string, userPrompt: string): Promise<
       // Compact prompts keep responses under 8K; truncation breaks parsers.
       max_tokens: 8192,
     }),
-  });
+  }).finally(() => clearTimeout(timeout));
 
   if (!response.ok) {
     const errorBody = await response.text();
