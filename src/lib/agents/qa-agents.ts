@@ -12,6 +12,7 @@
  */
 
 import { hasAIKey, callAI } from './ai-client';
+import { hasLettaKey, callLettaAgent } from './letta-client';
 import type { ProjectState, ProjectSpecs, GeneratedFile } from './types';
 
 // ─── System Prompts ──────────────────────────────────────────────
@@ -117,9 +118,19 @@ export async function runTestingAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<{ results: TestResult[] }> {
+  const prompt = `Create a test plan with results for this application:\n\nSummary: ${specs.summary}\nFeatures: ${specs.features.map(f => f.name).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\n\nRespond with JSON only.`;
+  // Primary path: persistent Letta agent (learns across projects)
+  if (hasLettaKey()) {
+    try {
+      const raw = await callLettaAgent('testing', prompt);
+      return parseTestResults(raw);
+    } catch (err) {
+      log('warn', `Letta testing agent failed (${err instanceof Error ? err.message : 'unknown'}), falling back`);
+    }
+  }
+  // Secondary path: Telnyx inference
   if (hasAIKey()) {
     try {
-      const prompt = `Create a test plan with results for this application:\n\nSummary: ${specs.summary}\nFeatures: ${specs.features.map(f => f.name).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\n\nRespond with JSON only.`;
       const raw = await callAI(TESTING_AGENT_SYSTEM_PROMPT, prompt);
       return parseTestResults(raw);
     } catch (err) {
@@ -133,9 +144,19 @@ export async function runComplianceAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<{ checks: ComplianceCheck[] }> {
+  const prompt = `Audit this application for compliance:\n\nSummary: ${specs.summary}\nTarget audience: ${specs.targetAudience}\nDeclared compliance needs: ${specs.compliance.join(', ')}\nPayments: ${specs.techStack.payments}\n\nRespond with JSON only.`;
+  // Primary path: persistent Letta agent (learns across projects)
+  if (hasLettaKey()) {
+    try {
+      const raw = await callLettaAgent('compliance', prompt);
+      return parseComplianceChecks(raw);
+    } catch (err) {
+      log('warn', `Letta compliance agent failed (${err instanceof Error ? err.message : 'unknown'}), falling back`);
+    }
+  }
+  // Secondary path: Telnyx inference
   if (hasAIKey()) {
     try {
-      const prompt = `Audit this application for compliance:\n\nSummary: ${specs.summary}\nTarget audience: ${specs.targetAudience}\nDeclared compliance needs: ${specs.compliance.join(', ')}\nPayments: ${specs.techStack.payments}\n\nRespond with JSON only.`;
       const raw = await callAI(COMPLIANCE_AGENT_SYSTEM_PROMPT, prompt);
       return parseComplianceChecks(raw);
     } catch (err) {
@@ -305,14 +326,9 @@ export async function runDevOpsAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<DevOpsOutput> {
-  if (!hasAIKey()) return generateDefaultDevOpsFiles(specs);
-  try {
-    const userPrompt = `Project: ${specs.summary}
-Tech stack: ${specs.techStack.frontend}, ${specs.techStack.backend}, ${specs.techStack.database}
-Hosting: ${specs.techStack.hosting}
+  const userPrompt = `Project: ${specs.summary}\nTech stack: ${specs.techStack.frontend}, ${specs.techStack.backend}, ${specs.techStack.database}\nHosting: ${specs.techStack.hosting}\n\nGenerate deployment config files for this project.`;
 
-Generate deployment config files for this project.`;
-    const raw = await callAI(DEVOPS_AGENT_SYSTEM_PROMPT, userPrompt);
+  const parseDevOps = (raw: string): DevOpsOutput => {
     const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     const parsed = JSON.parse(cleaned);
     const files = parsed.files;
@@ -328,8 +344,25 @@ Generate deployment config files for this project.`;
         };
       }),
     };
-  } catch (err) {
-    log('warn', `AI call failed, using default DevOps files: ${err instanceof Error ? err.message : 'unknown'}`);
-    return generateDefaultDevOpsFiles(specs);
+  };
+
+  // Primary path: persistent Letta agent (learns across projects)
+  if (hasLettaKey()) {
+    try {
+      const raw = await callLettaAgent('devops', userPrompt);
+      return parseDevOps(raw);
+    } catch (err) {
+      log('warn', `Letta devops agent failed (${err instanceof Error ? err.message : 'unknown'}), falling back`);
+    }
   }
+  // Secondary path: Telnyx inference
+  if (hasAIKey()) {
+    try {
+      const raw = await callAI(DEVOPS_AGENT_SYSTEM_PROMPT, userPrompt);
+      return parseDevOps(raw);
+    } catch (err) {
+      log('warn', `AI call failed, using default DevOps files: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+  }
+  return generateDefaultDevOpsFiles(specs);
 }

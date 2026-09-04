@@ -407,12 +407,14 @@ export class AppForgeOrchestrator {
 
     switch (task.role) {
       case 'pm':
-        this.state.specs = task.output as unknown as ProjectState['specs'];
+        // Pipeline passes { specs } — unwrap so state.specs IS the specs object
+        this.state.specs = (task.output.specs ?? task.output) as unknown as ProjectState['specs'];
         this.state.status = 'building';
         this.state.currentPhase = 1;
         break;
       case 'architect':
-        this.state.architecture = task.output as unknown as ProjectState['architecture'];
+        // Pipeline passes { architecture } — unwrap
+        this.state.architecture = (task.output.architecture ?? task.output) as unknown as ProjectState['architecture'];
         this.state.currentPhase = 2;
         break;
       case 'frontend':

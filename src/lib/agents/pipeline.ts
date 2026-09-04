@@ -79,12 +79,18 @@ export async function executePipeline(projectId: string, idea: string): Promise<
   // Helper: simulate work delay
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  // Execute tasks in dependency order
-  for (const task of tasks) {
-    if (task.status === 'completed') continue;
+  // Execute tasks in dependency order, with retry passes.
+  // A failed task flips to 'retrying' then back to 'pending' after its backoff
+  // timer, so we re-scan until nothing runnable remains (or safety limit hit).
+  const MAX_PASSES = 4;
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    let ranAny = false;
 
-    // Start the task
-    orchestrator.startTask(task.id, `agent-${task.role}`);
+    for (const task of tasks) {
+      if (task.status === 'completed' || task.status === 'failed' || task.status === 'retrying') continue;
+
+      // Start the task
+      orchestrator.startTask(task.id, `agent-${task.role}`);
 
     try {
       let output: Record<string, unknown>;
@@ -251,6 +257,16 @@ export async function executePipeline(projectId: string, idea: string): Promise<
         task.id,
         error instanceof Error ? error.message : 'Unknown error'
       );
+    }
+      ranAny = true;
+    }
+
+    // Nothing ran this pass — all tasks are completed, failed, or waiting
+    if (!ranAny) break;
+
+    // If any task is in retry backoff, wait for it to flip back to pending
+    if (tasks.some((t) => t.status === 'retrying')) {
+      await delay(5000);
     }
   }
 
