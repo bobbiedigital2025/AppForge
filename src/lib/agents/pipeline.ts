@@ -44,6 +44,7 @@ import {
 } from './codegen-agents';
 import { runTestingAgent, runComplianceAgent, runDocsAgent, runDevOpsAgent } from './qa-agents';
 import { hasAIKey, callAI, getAIStatus } from './ai-client';
+import { hasLettaKey, callLettaAgent, callWithFallback, getLettaStatus } from './letta-client';
 import type { ProjectState, GeneratedFile } from './types';
 
 // In-memory project store (shared with API routes)
@@ -92,12 +93,17 @@ export async function executePipeline(projectId: string, idea: string): Promise<
         // ─── Phase 1: PM Agent ───
         case 'pm': {
           let result: PMAgentOutput;
-          if (hasAIKey()) {
+          const pmPrompt = buildPMPrompt({ idea });
+          if (hasLettaKey() || hasAIKey()) {
             try {
-              const raw = await callAI(PM_AGENT_SYSTEM_PROMPT, buildPMPrompt({ idea }));
+              const raw = await callWithFallback(
+                'pm',
+                pmPrompt,
+                () => callAI(PM_AGENT_SYSTEM_PROMPT, pmPrompt),
+                (level, msg) => orchestrator.log('pm', level, msg)
+              );
               result = parsePMResponse(raw);
             } catch (err) {
-              // AI call failed — fall back to defaults so the pipeline keeps moving
               orchestrator.log('pm', 'warn', `AI call failed, using default specs: ${err instanceof Error ? err.message : 'unknown'}`);
               result = generateDefaultSpecs(idea);
             }
@@ -114,9 +120,15 @@ export async function executePipeline(projectId: string, idea: string): Promise<
           const state = orchestrator.getState();
           const specs = state.specs!;
           let result: ArchitectAgentOutput;
-          if (hasAIKey()) {
+          const archPrompt = buildArchitectPrompt({ specs, idea });
+          if (hasLettaKey() || hasAIKey()) {
             try {
-              const raw = await callAI(ARCHITECT_AGENT_SYSTEM_PROMPT, buildArchitectPrompt({ specs, idea }));
+              const raw = await callWithFallback(
+                'architect',
+                `Here is the product specification for the app:\n\n${JSON.stringify(specs, null, 2)}\n\nOriginal idea: ${idea}\n\nPlease produce a technical architecture in JSON format.`,
+                () => callAI(ARCHITECT_AGENT_SYSTEM_PROMPT, archPrompt),
+                (level, msg) => orchestrator.log('architect', level, msg)
+              );
               result = parseArchitectResponse(raw);
             } catch (err) {
               orchestrator.log('architect', 'warn', `AI call failed, using default architecture: ${err instanceof Error ? err.message : 'unknown'}`);
@@ -290,6 +302,7 @@ export function getProject(projectId: string) {
     agentActivity: project.orchestrator.getAgentActivity(),
     files: project.files,
     ai: getAIStatus(),
+    letta: getLettaStatus(),
     testResults: (testTask?.output as { results?: unknown[] })?.results || null,
     complianceChecks: (complianceTask?.output as { checks?: unknown[] })?.checks || null,
   };
