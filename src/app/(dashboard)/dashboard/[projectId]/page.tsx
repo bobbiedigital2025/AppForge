@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   Brain, Code2, Database, Shield, Rocket, FileText, Wrench,
   CheckCircle2, XCircle, Loader2, Clock, AlertCircle, Download, Zap, ZapOff,
-  FlaskConical, Scale, Eye, List
+  FlaskConical, Scale, Eye, List, BarChart3
 } from 'lucide-react';
 
 interface AgentActivity {
@@ -190,6 +190,12 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
               {data.ai.connected ? `AI: ${data.ai.model}` : 'AI: Demo mode'}
             </Badge>
           )}
+          <a href={`/analytics/${projectId}`}>
+            <Button variant="outline" size="sm">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Analytics
+            </Button>
+          </a>
           <Badge variant={state.status === 'done' ? 'success' : state.status === 'failed' ? 'error' : 'info'}>
             {state.status}
           </Badge>
