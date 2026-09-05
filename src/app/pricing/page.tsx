@@ -91,6 +91,42 @@ const plans: Plan[] = [
 
 export default function PricingPage() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const handleUpgrade = async (tierId: string) => {
+    if (tierId === 'free') return;
+
+    if (tierId === 'enterprise') {
+      // Enterprise goes to contact sales — for now, open Stripe too
+      // Can be changed to a contact form later
+    }
+
+    setLoading(tierId);
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: tierId }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 401) {
+        window.location.href = '/login?redirect=/pricing';
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Failed to start checkout. Please try again.');
+        setLoading(null);
+      }
+    } catch {
+      alert('Something went wrong. Please try again.');
+      setLoading(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -185,9 +221,10 @@ export default function PricingPage() {
                   <Button
                     variant={plan.popular ? 'gradient' : 'outline'}
                     className="w-full"
-                    disabled={plan.id === 'free'}
+                    disabled={plan.id === 'free' || loading === plan.id}
+                    onClick={() => handleUpgrade(plan.id)}
                   >
-                    {plan.cta} {plan.id !== 'free' && <ArrowRight className="w-3 h-3 ml-1" />}
+                    {loading === plan.id ? 'Redirecting to checkout...' : plan.cta} {plan.id !== 'free' && loading !== plan.id && <ArrowRight className="w-3 h-3 ml-1" />}
                   </Button>
                 </CardContent>
               </Card>
