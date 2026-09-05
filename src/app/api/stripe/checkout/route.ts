@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server-client';
 import { getStripe, getStripePriceId } from '@/lib/stripe/client';
+import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
@@ -13,6 +14,15 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  // Rate limit checkout attempts
+  const rl = rateLimit(getClientId(request, user.id), RATE_LIMITS.checkout);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many checkout attempts. Please try again later.' },
+      { status: 429 }
+    );
   }
 
   const { tier } = await request.json();

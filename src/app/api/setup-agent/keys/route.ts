@@ -7,18 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server-client';
-
-// Simple encryption using Supabase service role (keys stored encrypted in DB)
-// In production, use a proper encryption library — this is a basic obfuscation
-function encryptKey(key: string): string {
-  // Base64 encode for now — Supabase RLS protects access
-  // Real encryption should use a server-side encryption library
-  return Buffer.from(key).toString('base64');
-}
-
-function decryptKey(encrypted: string): string {
-  return Buffer.from(encrypted, 'base64').toString('utf-8');
-}
+import { encrypt } from '@/lib/encryption';
+import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 function maskKey(key: string): string {
   if (key.length <= 8) return '****';
@@ -61,6 +51,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
+  // Rate limit key storage writes
+  const rl = rateLimit(getClientId(request, user.id), RATE_LIMITS.keyStorage);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
+    );
+  }
+
   const { keyName, keyValue, projectId } = await request.json();
 
   if (!keyName || !keyValue) {
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   const provider = detectProvider(keyName);
-  const encrypted = encryptKey(keyValue);
+  const encrypted = encrypt(keyValue);
 
   try {
     const { data, error } = await supabase

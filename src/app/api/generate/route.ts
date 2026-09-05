@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createProject, listProjectsForUser } from '@/lib/agents/pipeline';
 import { createServerClient } from '@/lib/supabase/server-client';
+import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,17 +24,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rate limit pipeline generation (expensive AI calls)
+    const rl = rateLimit(getClientId(request, user.id), RATE_LIMITS.generate);
+    if (!rl.success) {
+      const retryAfter = Math.ceil((rl.resetAt - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: `Rate limit reached. You can start a new build in ${Math.ceil(retryAfter / 60)} minutes. Free tier allows ${RATE_LIMITS.generate.limit} builds per hour.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
     const body = await request.json();
     const idea: string = body.idea;
 
-    if (!idea || idea.trim().length < 10) {
+    if (!idea || typeof idea !== 'string' || idea.trim().length < 10) {
       return NextResponse.json(
         { error: 'Please provide a more detailed app idea (at least 10 characters)' },
         { status: 400 }
       );
     }
 
-    const projectId = createProject(idea.trim(), user.id);
+    // Sanitize: cap length, strip control characters
+    const sanitized = idea.trim().slice(0, 2000).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    const projectId = createProject(sanitized, user.id);
 
     return NextResponse.json({
       projectId,

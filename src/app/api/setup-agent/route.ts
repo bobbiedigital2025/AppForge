@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server-client';
+import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 const SETUP_AGENT_SYSTEM_PROMPT = `You are the AppForge Setup Agent — a friendly, patient AI assistant who helps users through every step after their app is generated: API key setup, deployment troubleshooting, AND post-deployment customization.
 
@@ -128,10 +129,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
+  // Rate limit chat (AI calls cost money)
+  const rl = rateLimit(getClientId(request, user.id), RATE_LIMITS.setupAgent);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: 'Too many messages. Please wait a bit before chatting more.', message: 'You\'re sending messages too quickly. Give me a moment and try again!' },
+      { status: 429 }
+    );
+  }
+
   const { messages, projectId } = await request.json();
 
   if (!messages || !Array.isArray(messages)) {
     return NextResponse.json({ error: 'Messages array required' }, { status: 400 });
+  }
+
+  // Sanitize messages: cap count and content length, strip control chars
+  const sanitizedMessages: ChatMessage[] = messages
+    .slice(-20) // Keep last 20 messages max (context window protection)
+    .map((m: { role: string; content: string }) => ({
+      role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: String(m.content || '').slice(0, 4000).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''),
+    }))
+    .filter((m: ChatMessage) => m.content.trim().length > 0);
+
+  if (sanitizedMessages.length === 0) {
+    return NextResponse.json({ error: 'No valid messages provided' }, { status: 400 });
   }
 
   // Build context about what keys might be needed
@@ -154,7 +177,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const result = await callTelnyx(messages, contextPrompt);
+  const result = await callTelnyx(sanitizedMessages, contextPrompt);
 
   return NextResponse.json({
     message: result.content,
