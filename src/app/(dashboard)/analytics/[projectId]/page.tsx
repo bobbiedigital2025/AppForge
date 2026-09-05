@@ -187,15 +187,15 @@ export default function AnalyticsPage({ params }: { params: Promise<{ projectId:
 
   // Test stats
   const testResults = data.testResults || [];
-  const testsPassed = testResults.filter(t => t.status === 'passed').length;
-  const testsFailed = testResults.filter(t => t.status === 'failed').length;
-  const testsSkipped = testResults.filter(t => t.status === 'skipped').length;
+  const testsPassed = testResults.filter(t => t.status === 'passed' || t.status === 'pass').length;
+  const testsFailed = testResults.filter(t => t.status === 'failed' || t.status === 'fail').length;
+  const testsSkipped = testResults.filter(t => t.status === 'skipped' || t.status === 'skip').length;
   const testPassRate = testResults.length > 0 ? Math.round((testsPassed / testResults.length) * 100) : 0;
 
   // Compliance stats
   const complianceChecks = data.complianceChecks || [];
-  const compliancePassed = complianceChecks.filter(c => c.status === 'passed').length;
-  const complianceFailed = complianceChecks.filter(c => c.status === 'failed').length;
+  const compliancePassed = complianceChecks.filter(c => c.status === 'passed' || c.status === 'pass').length;
+  const complianceFailed = complianceChecks.filter(c => c.status === 'failed' || c.status === 'fail').length;
   const complianceScore = complianceChecks.length > 0 ? Math.round((compliancePassed / complianceChecks.length) * 100) : 0;
 
   // Feature stats
@@ -391,9 +391,9 @@ export default function AnalyticsPage({ params }: { params: Promise<{ projectId:
                   <div className="space-y-1.5">
                     {testResults.map((test, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs py-1">
-                        {test.status === 'passed' ? (
+                        {test.status === 'passed' || test.status === 'pass' ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        ) : test.status === 'failed' ? (
+                        ) : test.status === 'failed' || test.status === 'fail' ? (
                           <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
                         ) : (
                           <Clock className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
@@ -429,7 +429,7 @@ export default function AnalyticsPage({ params }: { params: Promise<{ projectId:
                   <div className="space-y-1.5">
                     {complianceChecks.map((check, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs py-1">
-                        {check.status === 'passed' ? (
+                        {check.status === 'passed' || check.status === 'pass' ? (
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
                         ) : (
                           <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />

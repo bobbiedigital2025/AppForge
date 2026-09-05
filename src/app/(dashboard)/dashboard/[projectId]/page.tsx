@@ -403,17 +403,17 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
                     Test Results
                   </CardTitle>
                   <CardDescription>
-                    {data.testResults.filter(t => t.status === 'passed').length} passed,
-                    {' '}{data.testResults.filter(t => t.status === 'failed').length} failed,
-                    {' '}{data.testResults.filter(t => t.status === 'skipped').length} skipped
+                    {data.testResults.filter(t => t.status === 'passed' || t.status === 'pass').length} passed,
+                    {' '}{data.testResults.filter(t => t.status === 'failed' || t.status === 'fail').length} failed,
+                    {' '}{data.testResults.filter(t => t.status === 'skipped' || t.status === 'skip').length} skipped
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {data.testResults.map((test, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm py-1.5 border-b border-white/5 last:border-0">
-                      {test.status === 'passed' ? (
+                      {test.status === 'passed' || test.status === 'pass' ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      ) : test.status === 'failed' ? (
+                      ) : test.status === 'failed' || test.status === 'fail' ? (
                         <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
                       ) : (
                         <Clock className="w-4 h-4 text-white/30 flex-shrink-0" />
@@ -436,14 +436,14 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
                     Compliance Audit
                   </CardTitle>
                   <CardDescription>
-                    {data.complianceChecks.filter(c => c.status === 'passed').length} passed,
-                    {' '}{data.complianceChecks.filter(c => c.status === 'failed').length} failed
+                    {data.complianceChecks.filter(c => c.status === 'passed' || c.status === 'pass').length} passed,
+                    {' '}{data.complianceChecks.filter(c => c.status === 'failed' || c.status === 'fail').length} failed
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {data.complianceChecks.map((check, i) => (
                     <div key={i} className="flex items-start gap-3 text-sm py-1.5 border-b border-white/5 last:border-0">
-                      {check.status === 'passed' ? (
+                      {check.status === 'passed' || check.status === 'pass' ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                       ) : (
                         <XCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
@@ -451,7 +451,7 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-white/70 font-medium">{check.name}</span>
-                          <Badge variant={check.status === 'passed' ? 'success' : 'error'} className="text-xs">
+                          <Badge variant={check.status === 'passed' || check.status === 'pass' ? 'success' : 'error'} className="text-xs">
                             {check.status}
                           </Badge>
                         </div>
