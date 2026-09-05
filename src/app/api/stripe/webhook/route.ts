@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe/client';
 import { createClient } from '@supabase/supabase-js';
+import { sendUpgradeConfirmationEmail } from '@/lib/email';
 import Stripe from 'stripe';
 
 // Use service role client for webhook (bypasses RLS, runs without user session)
@@ -68,6 +69,18 @@ export async function POST(request: NextRequest) {
           .eq('id', userId);
 
         console.log(`User ${userId} upgraded to ${tier}`);
+
+        // Send upgrade confirmation email
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .single();
+
+        if (profile?.email) {
+          const tierName = tier.charAt(0).toUpperCase() + tier.slice(1);
+          await sendUpgradeConfirmationEmail(profile.email, tierName);
+        }
       }
       break;
     }

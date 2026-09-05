@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendExpiryWarningEmail } from '@/lib/email';
 
 export async function GET(request: NextRequest) {
   // Verify cron secret (Vercel sets this header automatically for cron jobs)
@@ -27,10 +28,11 @@ export async function GET(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const now = new Date().toISOString();
+  const now = new Date();
   const results = {
     backfilled: 0,
     expired: 0,
+    warningsSent: 0,
     errors: [] as string[],
   };
 
@@ -67,13 +69,48 @@ export async function GET(request: NextRequest) {
       else results.backfilled += 1;
     }
 
-    // 2. Expire: free-tier projects past their expiry → mark as expired (offline)
+    // 2. Send expiry warning emails: free-tier projects expiring within 24 hours
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data: expiringSoon, error: warningError } = await supabase
+      .from('projects')
+      .select('id, user_id, name, preview_expires_at')
+      .eq('is_preview', true)
+      .not('preview_expires_at', 'is', null)
+      .gte('preview_expires_at', now.toISOString())
+      .lte('preview_expires_at', tomorrow.toISOString());
+
+    if (warningError) throw warningError;
+
+    for (const project of expiringSoon || []) {
+      // Only for free-tier users
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier, email')
+        .eq('id', project.user_id)
+        .single();
+
+      if (profile?.tier && profile.tier !== 'free') continue;
+      if (!profile?.email) continue;
+
+      const { sent } = await sendExpiryWarningEmail(
+        profile.email,
+        project.name || 'Your app',
+        1,
+        `https://bobbiedigital2025-appforge-dev.vercel.app/pricing`
+      );
+
+      if (sent) results.warningsSent += 1;
+    }
+
+    // 3. Expire: free-tier projects past their expiry → mark as expired (offline)
     const { data: expiredProjects, error: expireError } = await supabase
       .from('projects')
       .select('id, user_id')
       .eq('is_preview', true)
       .not('preview_expires_at', 'is', null)
-      .lt('preview_expires_at', now);
+      .lt('preview_expires_at', now.toISOString());
 
     if (expireError) throw expireError;
 
