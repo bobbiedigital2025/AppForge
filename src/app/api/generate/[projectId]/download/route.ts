@@ -30,12 +30,13 @@ export async function GET(
   // Check tier — exports require a paid plan
   const { data: profile } = await supabase
     .from('profiles')
-    .select('tier')
+    .select('tier, role')
     .eq('id', user.id)
     .single();
 
   const tier = profile?.tier || 'free';
-  if (tier === 'free') {
+  const isAdmin = profile?.role === 'admin';
+  if (tier === 'free' && !isAdmin) {
     return NextResponse.json(
       { error: 'Export requires a paid plan', upgradeUrl: '/pricing' },
       { status: 403 }
