@@ -35,24 +35,27 @@ export function TermsGate({ onAccept }: TermsGateProps) {
               API Keys Required
             </h3>
             <p className="text-sm text-white/60">
-              AppForge uses AI and database services that require API keys. You'll need to:
+              Here's the deal: our AI team builds your app for free. But your app runs on <strong className="text-white/80">your own API keys</strong> — that's how we keep it free. Your AI calls go through your Telnyx account, your data lives in your Supabase project. You're in control, and you pay the providers directly (both have free tiers). You'll need:
             </p>
             <ul className="text-sm text-white/60 space-y-1 ml-4">
               <li className="flex items-start gap-2">
                 <span className="text-violet-400 mt-1">1.</span>
-                Get a Telnyx API key (powers the AI agents)
+                Get a Telnyx API key (powers the AI in your generated app)
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-violet-400 mt-1">2.</span>
-                Create a Supabase project (stores your data)
+                Create a Supabase project (stores your app's data)
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-violet-400 mt-1">3.</span>
-                Add these keys to your environment variables
+                Paste these keys into your app's environment variables
               </li>
             </ul>
+            <p className="text-sm text-white/60 mt-2">
+              <strong className="text-white/80">Don't worry</strong> — if your app doesn't deploy because of missing keys, our Setup Agent will pop up and walk you through it step by step. You're never stuck alone.
+            </p>
             <p className="text-xs text-white/40">
-              Our <a href="/setup" className="text-violet-400 hover:underline">Setup Guide</a> walks you through each step.
+              Both providers have free tiers to get started. Our <a href="/setup" className="text-violet-400 hover:underline">Setup Guide</a> has direct links and step-by-step instructions.
             </p>
           </div>
 
@@ -79,7 +82,7 @@ export function TermsGate({ onAccept }: TermsGateProps) {
                 {understoodKeys && <CheckCircle className="w-4 h-4" />}
               </div>
               <span className="text-sm text-white/70">
-                I understand I need to provide my own API keys for AI and database services, and that these are separate from AppForge's pricing.
+                I understand my app runs on my own API keys (Telnyx for AI, Supabase for database) and that I'll need to set those up after the build. A Setup Agent will guide me through it step by step.
               </span>
             </label>
 

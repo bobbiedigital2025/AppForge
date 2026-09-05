@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, ArrowRight, Zap, Shield, Code2, Rocket, Brain, CheckCircle2, LogOut } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth-context';
+import { TermsGate } from '@/components/terms-gate';
 
 const EXAMPLE_IDEAS = [
   'A task management app for remote teams with time tracking and AI-powered sprint planning',
@@ -21,16 +22,18 @@ export default function LandingPage() {
   const { user, signOut } = useAuth();
   const [idea, setIdea] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!idea.trim()) return;
-
-    // Redirect to login if not authenticated
-    if (!user) {
-      router.push('/login?redirect=/');
-      return;
+  // Check if user has already accepted terms (stored in localStorage for UX)
+  useEffect(() => {
+    if (user) {
+      const accepted = localStorage.getItem(`terms_accepted_${user.id}`);
+      if (accepted) setTermsAccepted(true);
     }
+  }, [user]);
 
+  const doSubmit = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/generate', {
@@ -51,6 +54,24 @@ export default function LandingPage() {
     } catch {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async () => {
+    if (!idea.trim()) return;
+
+    // Redirect to login if not authenticated
+    if (!user) {
+      router.push('/login?redirect=/');
+      return;
+    }
+
+    // Show terms gate on first project creation
+    if (!termsAccepted) {
+      setShowTerms(true);
+      return;
+    }
+
+    await doSubmit();
   };
 
   return (
@@ -221,12 +242,26 @@ export default function LandingPage() {
             <p>AppForge — AI-powered application factory. Built with Letta.</p>
             <div className="flex items-center justify-center gap-4 mt-3">
               <a href="/setup" className="hover:text-white/60 transition">Setup Guide</a>
+              <a href="/pricing" className="hover:text-white/60 transition">Pricing</a>
               <a href="/terms" className="hover:text-white/60 transition">Terms of Service</a>
               <a href="/privacy" className="hover:text-white/60 transition">Privacy Policy</a>
             </div>
           </div>
         </footer>
       </div>
+
+      {/* Terms Gate — shows before first project creation */}
+      {showTerms && (
+        <TermsGate
+          onAccept={() => {
+            setTermsAccepted(true);
+            setShowTerms(false);
+            if (user) localStorage.setItem(`terms_accepted_${user.id}`, 'true');
+            // Auto-submit after accepting
+            handleSubmit();
+          }}
+        />
+      )}
     </div>
   );
 }
