@@ -8,7 +8,7 @@
 CREATE TABLE IF NOT EXISTS user_api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('telnyx', 'supabase', 'vercel', 'openai', 'anthropic', 'custom')),
   key_name TEXT NOT NULL,
   key_value_encrypted TEXT NOT NULL,
