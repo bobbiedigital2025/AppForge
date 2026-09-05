@@ -220,6 +220,7 @@ export default function LandingPage() {
           <div className="max-w-7xl mx-auto px-6 py-8 text-center text-sm text-white/40">
             <p>AppForge — AI-powered application factory. Built with Letta.</p>
             <div className="flex items-center justify-center gap-4 mt-3">
+              <a href="/setup" className="hover:text-white/60 transition">Setup Guide</a>
               <a href="/terms" className="hover:text-white/60 transition">Terms of Service</a>
               <a href="/privacy" className="hover:text-white/60 transition">Privacy Policy</a>
             </div>

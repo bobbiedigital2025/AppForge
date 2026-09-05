@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, ArrowRight, LogOut } from 'lucide-react';
+import { Sparkles, ArrowRight, LogOut, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/supabase/auth-context';
 
@@ -59,6 +59,9 @@ export default function DashboardListPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => router.push('/setup')}>
+            <BookOpen className="w-3 h-3" /> Setup Guide
+          </Button>
           <Button variant="gradient" size="sm" onClick={() => router.push('/')}>
             New Project <ArrowRight className="w-3 h-3" />
           </Button>
