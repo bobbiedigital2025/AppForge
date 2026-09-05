@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import {
   Brain, Code2, Database, Shield, Rocket, FileText, Wrench,
   CheckCircle2, XCircle, Loader2, Clock, AlertCircle, Download, Zap, ZapOff,
-  FlaskConical, Scale, Eye, List, BarChart3
+  FlaskConical, Scale, Eye, List, BarChart3, Bot
 } from 'lucide-react';
+import { SetupAgent } from '@/components/setup-agent';
 
 interface AgentActivity {
   total: number;
@@ -117,6 +118,12 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
   const [data, setData] = useState<ProjectData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'pipeline' | 'preview'>('pipeline');
+  const [setupAgentOpen, setSetupAgentOpen] = useState(false);
+
+  // Detect if project has deployment issues (failed tasks or missing deployment URL)
+  const hasDeploymentIssues = data?.state?.tasks?.some(t => t.status === 'failed') ||
+    (data?.state?.status === 'done' && !data?.state?.deploymentUrl);
+  const missingKeys = hasDeploymentIssues ? ['TELNYX_API_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] : [];
 
   useEffect(() => {
     let active = true;
@@ -581,6 +588,23 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
         </>
         )}
       </div>
+
+      {/* Setup Agent floating button */}
+      <button
+        onClick={() => setSetupAgentOpen(true)}
+        className="fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/30 flex items-center justify-center hover:scale-110 transition-transform"
+        title="Setup Agent — Get help with API keys, deployment, and customization"
+      >
+        <Bot className="w-6 h-6 text-white" />
+      </button>
+
+      {/* Setup Agent chat */}
+      <SetupAgent
+        isOpen={setupAgentOpen}
+        onClose={() => setSetupAgentOpen(false)}
+        missingKeys={missingKeys}
+        projectId={projectId}
+      />
     </div>
   );
 }

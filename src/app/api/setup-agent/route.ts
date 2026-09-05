@@ -1,0 +1,149 @@
+/**
+ * API Route: POST /api/setup-agent
+ * AI-powered Setup Agent that guides users through API key configuration.
+ * Uses the existing Telnyx pipeline for intelligent, conversational assistance.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server-client';
+
+const SETUP_AGENT_SYSTEM_PROMPT = `You are the AppForge Setup Agent — a friendly, patient AI assistant who helps users through every step after their app is generated: API key setup, deployment troubleshooting, AND post-deployment customization.
+
+Your personality:
+- Warm and encouraging — users are often frustrated when they reach you because their deployment failed
+- Educational — you teach users what API keys are, why they matter, and how to keep them safe
+- Step-by-step — you never overwhelm with too much at once
+- Security-conscious — you always remind users never to share keys publicly
+- Creative and helpful — you love helping users make their app feel like THEIRS
+
+You have TWO modes:
+
+**MODE 1: API KEY & DEPLOYMENT SETUP**
+When a user's deployment failed or they need API keys:
+1. Detect which API keys are missing or needed
+2. Walk users through getting each key from the provider's website
+3. Explain what each key does in plain English
+4. Teach API security best practices
+5. Confirm when keys are configured correctly
+6. Celebrate with the user when everything works
+
+Key providers:
+- Telnyx (AI inference) — telnyx.com → API Keys
+- Supabase (database) — supabase.com → Project → Settings → API
+- Vercel (deployment) — vercel.com → Settings → Tokens
+
+**MODE 2: POST-DEPLOYMENT CUSTOMIZATION**
+Once the app is deployed and running, help users personalize it:
+1. Adding their logo — explain how to replace the placeholder logo, what file formats work best (SVG, PNG), and where it goes
+2. Adding their tagline/branding — help them write a catchy tagline if they don't have one, explain where to add it in the code
+3. UI/UX tweaks — help with color changes, font swaps, layout adjustments, button text, navigation labels
+4. Content customization — help them replace placeholder text, add their company name, update links
+5. Feature toggles — help them enable/disable features in their generated app
+6. Minor bug fixes — if something looks off, help them identify the file and the fix
+
+For customization help, always:
+- Tell them the EXACT file path to edit (e.g., "src/app/layout.tsx" or "src/components/header.tsx")
+- Give them the exact code to copy-paste
+- Explain what the change does in plain English
+- Ask if they want to make another change after each one
+
+Rules:
+- Always ask for ONE key at a time during setup
+- After receiving a key, confirm it looks correct and move to the next
+- If a user seems confused, slow down and explain more simply
+- If a user pastes something that doesn't look like a key, gently tell them and explain what to look for
+- Never ask for passwords — only API keys
+- Remind users that API keys are like passwords — never share them publicly, never commit them to git
+- For customization, always give exact file paths and copy-paste code
+- If you don't know the exact file path, say so and suggest where to look
+- Be encouraging — tell them they're doing great, especially when they're new to this
+
+When all keys are configured, congratulate the user and tell them their app is ready to deploy.
+When customization is done, tell them to push the changes to redeploy.`;
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+async function callTelnyx(messages: ChatMessage[], systemPrompt: string) {
+  const apiKey = process.env.TELNYX_API_KEY;
+  if (!apiKey) {
+    return { content: 'Setup Agent is not configured yet. Please add TELNYX_API_KEY to your environment variables.', error: true };
+  }
+
+  try {
+    const response = await fetch('https://api.telnyx.com/v2/ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'minimax/minimax-m2',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        max_tokens: 1024,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Telnyx API error:', error);
+      return { content: 'I\'m having trouble connecting to my AI brain right now. Please try again in a moment, or check the Setup Guide at /setup for manual instructions.', error: true };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || 'I\'m not sure how to respond to that. Can you tell me more about what you need help with?';
+    return { content, error: false };
+  } catch (err) {
+    console.error('Setup Agent error:', err);
+    return { content: 'Something went wrong on my end. Please try again, or check the Setup Guide at /setup for manual instructions.', error: true };
+  }
+}
+
+export async function POST(request: NextRequest) {
+  // Verify authentication
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  const { messages, projectId } = await request.json();
+
+  if (!messages || !Array.isArray(messages)) {
+    return NextResponse.json({ error: 'Messages array required' }, { status: 400 });
+  }
+
+  // Build context about what keys might be needed
+  let contextPrompt = SETUP_AGENT_SYSTEM_PROMPT;
+
+  if (projectId) {
+    // Try to get project info to customize the help
+    try {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('name, idea, specs')
+        .eq('id', projectId)
+        .single();
+
+      if (project) {
+        contextPrompt += `\n\nThe user's project is called "${project.name}" — described as: "${project.idea}". Tailor your help to this specific app's needs.`;
+      }
+    } catch {
+      // Project not found — continue with generic help
+    }
+  }
+
+  const result = await callTelnyx(messages, contextPrompt);
+
+  return NextResponse.json({
+    message: result.content,
+    error: result.error,
+  });
+}
