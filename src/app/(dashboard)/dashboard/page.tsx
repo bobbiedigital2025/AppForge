@@ -1,22 +1,50 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/supabase/auth-context';
+
+interface ProjectInfo {
+  id: string;
+  name: string;
+  idea: string;
+  status: string;
+  progress: number;
+  created_at: string;
+}
 
 export default function DashboardListPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<string[]>([]);
+  const { user, loading, signOut } = useAuth();
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
 
   useEffect(() => {
-    fetch('/api/generate')
-      .then((res) => res.json())
-      .then((data) => setProjects(data.projects || []))
-      .catch(() => {});
-  }, []);
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user) {
+      fetch('/api/generate')
+        .then((res) => res.json())
+        .then((data) => setProjects(data.projects || []))
+        .catch(() => {});
+    }
+  }, [user]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-black" />;
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -26,10 +54,18 @@ export default function DashboardListPage() {
             <Sparkles className="w-4 h-4" />
           </div>
           <h1 className="font-semibold">AppForge Dashboard</h1>
+          {user && (
+            <span className="text-sm text-white/40 ml-2">{user.email}</span>
+          )}
         </div>
-        <Button variant="gradient" size="sm" onClick={() => router.push('/')}>
-          New Project <ArrowRight className="w-3 h-3" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="gradient" size="sm" onClick={() => router.push('/')}>
+            New Project <ArrowRight className="w-3 h-3" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+            <LogOut className="w-3 h-3" /> Sign out
+          </Button>
+        </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-12">
@@ -45,12 +81,20 @@ export default function DashboardListPage() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {projects.map((id) => (
-              <Card key={id} className="cursor-pointer hover:border-white/20 transition-all" onClick={() => router.push(`/dashboard/${id}`)}>
+            {projects.map((p) => (
+              <Card key={p.id} className="cursor-pointer hover:border-white/20 transition-all" onClick={() => router.push(`/dashboard/${p.id}`)}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-sm">{id}</h3>
-                    <Badge variant="info" className="mt-1">In progress</Badge>
+                    <h3 className="font-medium text-sm">{p.name || p.id}</h3>
+                    <p className="text-xs text-white/40 mt-0.5 line-clamp-1">{p.idea}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant={p.status === 'completed' ? 'success' : 'info'}>
+                        {p.status || 'In progress'}
+                      </Badge>
+                      {typeof p.progress === 'number' && (
+                        <span className="text-xs text-white/30">{p.progress}%</span>
+                      )}
+                    </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-white/30" />
                 </CardContent>

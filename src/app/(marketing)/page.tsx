@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, ArrowRight, Zap, Shield, Code2, Rocket, Brain, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, Shield, Code2, Rocket, Brain, CheckCircle2, LogOut } from 'lucide-react';
+import { useAuth } from '@/lib/supabase/auth-context';
 
 const EXAMPLE_IDEAS = [
   'A task management app for remote teams with time tracking and AI-powered sprint planning',
@@ -17,11 +18,19 @@ const EXAMPLE_IDEAS = [
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user, signOut } = useAuth();
   const [idea, setIdea] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     if (!idea.trim()) return;
+
+    // Redirect to login if not authenticated
+    if (!user) {
+      router.push('/login?redirect=/');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/generate', {
@@ -29,8 +38,16 @@ export default function LandingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idea }),
       });
+      if (res.status === 401) {
+        router.push('/login?redirect=/');
+        return;
+      }
       const data = await res.json();
-      router.push(`/dashboard/${data.projectId}`);
+      if (data.projectId) {
+        router.push(`/dashboard/${data.projectId}`);
+      } else {
+        setLoading(false);
+      }
     } catch {
       setLoading(false);
     }
@@ -55,9 +72,25 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 text-sm text-white/60">
             <a href="#how" className="hover:text-white transition-colors">How it works</a>
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
-              Dashboard
-            </Button>
+            {user ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
+                  Dashboard
+                </Button>
+                <Button variant="ghost" size="sm" onClick={async () => { await signOut(); router.push('/'); }}>
+                  <LogOut className="w-3 h-3" /> Sign out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/login')}>
+                  Sign in
+                </Button>
+                <Button variant="gradient" size="sm" onClick={() => router.push('/signup')}>
+                  Get started
+                </Button>
+              </>
+            )}
           </div>
         </nav>
 
@@ -186,6 +219,10 @@ export default function LandingPage() {
         <footer className="border-t border-white/10 mt-20">
           <div className="max-w-7xl mx-auto px-6 py-8 text-center text-sm text-white/40">
             <p>AppForge — AI-powered application factory. Built with Letta.</p>
+            <div className="flex items-center justify-center gap-4 mt-3">
+              <a href="/terms" className="hover:text-white/60 transition">Terms of Service</a>
+              <a href="/privacy" className="hover:text-white/60 transition">Privacy Policy</a>
+            </div>
           </div>
         </footer>
       </div>

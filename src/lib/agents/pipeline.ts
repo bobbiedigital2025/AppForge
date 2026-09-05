@@ -46,14 +46,18 @@ import { runTestingAgent, runComplianceAgent, runDocsAgent, runDevOpsAgent } fro
 import { hasAIKey, callAI, getAIStatus } from './ai-client';
 import { hasLettaKey, callLettaAgent, callWithFallback, getLettaStatus } from './letta-client';
 import type { ProjectState, GeneratedFile } from './types';
+import { hasSupabase } from '../supabase/server';
+import { saveProject, loadProjectFromSupabase, listUserProjects } from '../supabase/project-store';
 
 // In-memory project store (shared with API routes)
+// Still needed for active pipeline runs; completed projects persist to Supabase
 declare global {
   // eslint-disable-next-line no-var
   var __appforgeProjects: Map<string, {
     orchestrator: AppForgeOrchestrator;
     state: ProjectState;
     files: GeneratedFile[];
+    userId?: string;
   }> | undefined;
 }
 
@@ -61,14 +65,14 @@ function getStore() {
   if (!globalThis.__appforgeProjects) {
     globalThis.__appforgeProjects = new Map();
   }
-  return globalThis.__appforgeProjects;
+  return globalThis.__appforgeProjects!;
 }
 
 /**
  * Execute the full pipeline for a project.
  * This runs asynchronously — the dashboard polls for updates.
  */
-export async function executePipeline(projectId: string, idea: string): Promise<void> {
+export async function executePipeline(projectId: string, idea: string, userId?: string): Promise<void> {
   const store = getStore();
   const project = store.get(projectId);
   if (!project) return;
@@ -274,12 +278,21 @@ export async function executePipeline(projectId: string, idea: string): Promise<
   const finalState = orchestrator.getState();
   project.state = finalState;
   store.set(projectId, project);
+
+  // Persist final state to Supabase
+  if (userId && hasSupabase()) {
+    try {
+      await saveProject(userId, projectId, finalState, project.files, orchestrator.getProgress());
+    } catch (err) {
+      console.error(`Failed to save final project state to Supabase:`, err);
+    }
+  }
 }
 
 /**
  * Create a new project and start the pipeline.
  */
-export function createProject(idea: string): string {
+export function createProject(idea: string, userId?: string): string {
   const projectId = `proj-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const orchestrator = new AppForgeOrchestrator(projectId, idea);
   orchestrator.decomposeIdea(idea);
@@ -289,10 +302,18 @@ export function createProject(idea: string): string {
     orchestrator,
     state: orchestrator.getState(),
     files: [],
+    userId,
   });
 
+  // Persist to Supabase if configured
+  if (userId && hasSupabase()) {
+    saveProject(userId, projectId, orchestrator.getState(), [], 0).catch((err) => {
+      console.error(`Failed to save project to Supabase:`, err);
+    });
+  }
+
   // Start the pipeline asynchronously
-  executePipeline(projectId, idea).catch((err) => {
+  executePipeline(projectId, idea, userId).catch((err) => {
     console.error(`Pipeline failed for ${projectId}:`, err);
   });
 
@@ -325,7 +346,37 @@ export function getProject(projectId: string) {
 }
 
 /**
- * List all projects.
+ * Get project from Supabase (for completed/persisted projects).
+ */
+export async function getProjectFromSupabase(projectId: string) {
+  return loadProjectFromSupabase(projectId);
+}
+
+/**
+ * List all projects for a user (from Supabase, falling back to in-memory).
+ */
+export async function listProjectsForUser(userId: string) {
+  if (hasSupabase()) {
+    const projects = await listUserProjects(userId);
+    if (projects.length > 0) return projects;
+  }
+  // Fallback: return in-memory projects
+  const store = getStore();
+  return Array.from(store.entries())
+    .filter(([, p]) => p.userId === userId || !p.userId)
+    .map(([id, p]) => ({
+      id,
+      name: p.state.name,
+      idea: p.state.idea,
+      status: p.state.status,
+      progress: p.orchestrator.getProgress(),
+      created_at: new Date(p.state.createdAt).toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+}
+
+/**
+ * List all project IDs (legacy, for in-memory only).
  */
 export function listProjects(): string[] {
   const store = getStore();
