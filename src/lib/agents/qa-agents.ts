@@ -75,12 +75,14 @@ export interface ComplianceCheck {
 
 export function parseTestResults(response: string): { results: TestResult[] } {
   const parsed = extractJSON(response);
-  const results: TestResult[] = (parsed.results || []).map((r: Partial<TestResult>) => ({
-    testName: r.testName || 'Unnamed test',
-    type: r.type || 'unit',
-    status: r.status || 'passed',
-    duration: typeof r.duration === 'number' ? r.duration : 100,
-    error: r.error || null,
+  // Handle alternative key names: results, tests, testResults, testPlan
+  const rawResults: Record<string, unknown>[] = parsed.results || parsed.tests || parsed.testResults || parsed.testPlan || [];
+  const results: TestResult[] = rawResults.map((r) => ({
+    testName: (r.testName as string) || (r.name as string) || (r.test as string) || 'Unnamed test',
+    type: (r.type as string) || (r.category as string) || 'unit',
+    status: (r.status as string) || (r.result as string) || 'passed',
+    duration: typeof r.duration === 'number' ? r.duration : typeof r.time === 'number' ? r.time : 100,
+    error: (r.error as string) || (r.errorMessage as string) || null,
   }));
   return { results };
 }
@@ -95,7 +97,7 @@ export function parseComplianceChecks(response: string): { checks: ComplianceChe
   return { checks };
 }
 
-function extractJSON(response: string): { results?: Partial<TestResult>[]; checks?: Partial<ComplianceCheck>[] } {
+function extractJSON(response: string): { results?: Partial<TestResult>[]; tests?: Partial<TestResult>[]; testResults?: Partial<TestResult>[]; testPlan?: Partial<TestResult>[]; checks?: Partial<ComplianceCheck>[] } {
   // Strip markdown code fences that models often wrap around JSON
   let cleaned = response.trim();
   if (cleaned.startsWith('```')) {
@@ -118,7 +120,7 @@ export async function runTestingAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<{ results: TestResult[] }> {
-  const prompt = `Create a test plan with results for this application:\n\nSummary: ${specs.summary}\nFeatures: ${specs.features.map(f => f.name).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\n\nRespond with JSON only.`;
+  const prompt = `Create a test plan with results for this application:\n\nSummary: ${specs.summary}\nFeatures: ${specs.features.map(f => f.name).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\n\n${TESTING_AGENT_SYSTEM_PROMPT}\n\nRespond with JSON only.`;
   // Primary path: persistent Letta agent (learns across projects)
   if (hasLettaKey()) {
     try {
@@ -144,7 +146,7 @@ export async function runComplianceAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<{ checks: ComplianceCheck[] }> {
-  const prompt = `Audit this application for compliance:\n\nSummary: ${specs.summary}\nTarget audience: ${specs.targetAudience}\nDeclared compliance needs: ${specs.compliance.join(', ')}\nPayments: ${specs.techStack.payments}\n\nRespond with JSON only.`;
+  const prompt = `Audit this application for compliance:\n\nSummary: ${specs.summary}\nTarget audience: ${specs.targetAudience}\nDeclared compliance needs: ${specs.compliance.join(', ')}\nPayments: ${specs.techStack.payments}\n\n${COMPLIANCE_AGENT_SYSTEM_PROMPT}\n\nRespond with JSON only.`;
   // Primary path: persistent Letta agent (learns across projects)
   if (hasLettaKey()) {
     try {
@@ -326,7 +328,7 @@ export async function runDevOpsAgent(
   specs: ProjectSpecs,
   log: (level: 'warn', msg: string) => void
 ): Promise<DevOpsOutput> {
-  const userPrompt = `Project: ${specs.summary}\nTech stack: ${specs.techStack.frontend}, ${specs.techStack.backend}, ${specs.techStack.database}\nHosting: ${specs.techStack.hosting}\n\nGenerate deployment config files for this project.`;
+  const userPrompt = `Project: ${specs.summary}\nTech stack: ${specs.techStack.frontend}, ${specs.techStack.backend}, ${specs.techStack.database}\nHosting: ${specs.techStack.hosting}\n\n${DEVOPS_AGENT_SYSTEM_PROMPT}\n\nGenerate deployment config files for this project.`;
 
   const parseDevOps = (raw: string): DevOpsOutput => {
     const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
