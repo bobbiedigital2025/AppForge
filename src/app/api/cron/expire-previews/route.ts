@@ -1,0 +1,125 @@
+/**
+ * API Route: GET /api/cron/expire-previews
+ * Vercel Cron job — expires free-tier preview projects whose
+ * preview_expires_at has passed.
+ *
+ * Scheduled in vercel.json to run daily at 03:00 UTC.
+ * Secured with CRON_SECRET — Vercel sends it as Authorization: Bearer <secret>.
+ *
+ * Also sets preview_expires_at (7 days out) on any free-tier project
+ * that doesn't have one yet — keeps the data consistent.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+export async function GET(request: NextRequest) {
+  // Verify cron secret (Vercel sets this header automatically for cron jobs)
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const now = new Date().toISOString();
+  const results = {
+    backfilled: 0,
+    expired: 0,
+    errors: [] as string[],
+  };
+
+  try {
+    // 1. Backfill: free-tier projects with no expiry set → set to 7 days from creation
+    const { data: noExpiry, error: backfillError } = await supabase
+      .from('projects')
+      .select('id, created_at, user_id')
+      .eq('is_preview', true)
+      .is('preview_expires_at', null);
+
+    if (backfillError) throw backfillError;
+
+    for (const project of noExpiry || []) {
+      // Only backfill for users currently on free tier
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', project.user_id)
+        .single();
+
+      if (profile?.tier && profile.tier !== 'free') continue;
+
+      const createdAt = new Date(project.created_at);
+      const expiresAt = new Date(createdAt);
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error } = await supabase
+        .from('projects')
+        .update({ preview_expires_at: expiresAt.toISOString() })
+        .eq('id', project.id);
+
+      if (error) results.errors.push(`backfill ${project.id}: ${error.message}`);
+      else results.backfilled += 1;
+    }
+
+    // 2. Expire: free-tier projects past their expiry → mark as expired (offline)
+    const { data: expiredProjects, error: expireError } = await supabase
+      .from('projects')
+      .select('id, user_id')
+      .eq('is_preview', true)
+      .not('preview_expires_at', 'is', null)
+      .lt('preview_expires_at', now);
+
+    if (expireError) throw expireError;
+
+    for (const project of expiredProjects || []) {
+      // Skip if user has upgraded to paid
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', project.user_id)
+        .single();
+
+      if (profile?.tier && profile.tier !== 'free') {
+        // User upgraded — clear preview flags instead
+        await supabase
+          .from('projects')
+          .update({ is_preview: false, preview_expires_at: null })
+          .eq('id', project.id);
+        continue;
+      }
+
+      // Mark project as expired by flipping is_preview off and keeping the record
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          is_preview: false,
+          status: 'expired',
+          updated_at: now,
+        })
+        .eq('id', project.id);
+
+      if (error) results.errors.push(`expire ${project.id}: ${error.message}`);
+      else results.expired += 1;
+    }
+
+    console.log('Preview expiry cron complete:', results);
+
+    return NextResponse.json({
+      success: true,
+      timestamp: now,
+      ...results,
+    });
+  } catch (err) {
+    console.error('Cron error:', err);
+    return NextResponse.json(
+      { success: false, error: err instanceof Error ? err.message : 'Unknown error', ...results },
+      { status: 500 }
+    );
+  }
+}
