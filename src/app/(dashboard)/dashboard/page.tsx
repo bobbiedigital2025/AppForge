@@ -62,6 +62,9 @@ export default function DashboardListPage() {
           <Button variant="outline" size="sm" onClick={() => router.push('/setup')}>
             <BookOpen className="w-3 h-3" /> Setup Guide
           </Button>
+          <Button variant="outline" size="sm" onClick={() => router.push('/pricing')}>
+            Upgrade
+          </Button>
           <Button variant="gradient" size="sm" onClick={() => router.push('/')}>
             New Project <ArrowRight className="w-3 h-3" />
           </Button>
