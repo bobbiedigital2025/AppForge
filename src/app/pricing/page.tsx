@@ -28,10 +28,10 @@ const plans: Plan[] = [
     description: 'See what AppForge can do',
     features: [
       '1 AI-generated app per month',
-      'Live preview URL',
+      'Hosted preview inside AppForge',
+      'README + Investor Pitch + Reality Check docs',
       '7-day preview access',
       'Community support',
-      'Built with AppForge branding',
     ],
     cta: 'Current Plan',
   },

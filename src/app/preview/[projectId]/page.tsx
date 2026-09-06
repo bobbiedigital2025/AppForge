@@ -295,11 +295,12 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
           </section>
         )}
 
-        {/* Deployment */}
+        {/* Deployment — only shown when a REAL deployment URL exists (future paid deploy feature).
+            Never fabricated: see pipeline.ts DevOps note. */}
         {state.deploymentUrl && (
           <section className="preview-section">
             <div style={{ padding: '1.25rem', borderRadius: '0.75rem', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Live deployment</span>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Deployed</span>
               <div style={{ marginTop: '0.5rem' }}>
                 <a href={state.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#67e8f9', textDecoration: 'underline', fontSize: '0.9375rem' }}>
                   {state.deploymentUrl}

@@ -120,9 +120,9 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
   const [view, setView] = useState<'pipeline' | 'preview'>('pipeline');
   const [setupAgentOpen, setSetupAgentOpen] = useState(false);
 
-  // Detect if project has deployment issues (failed tasks or missing deployment URL)
-  const hasDeploymentIssues = data?.state?.tasks?.some(t => t.status === 'failed') ||
-    (data?.state?.status === 'done' && !data?.state?.deploymentUrl);
+  // Detect if project has build issues (failed tasks). Missing deploymentUrl is NOT
+  // an issue — apps are hosted previews inside AppForge, not external deployments.
+  const hasDeploymentIssues = data?.state?.tasks?.some(t => t.status === 'failed');
   const missingKeys = hasDeploymentIssues ? ['TELNYX_API_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] : [];
 
   useEffect(() => {
@@ -497,21 +497,23 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
               </Card>
             )}
 
-            {/* Deployment URL */}
-            {state.deploymentUrl && (
+            {/* Hosted Preview — honest status, no fake deployment URL */}
+            {state.status === 'done' && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Deployment</CardTitle>
-                  <CardDescription>Your app is live</CardDescription>
+                  <CardTitle>Hosted Preview</CardTitle>
+                  <CardDescription>Your app lives here inside AppForge — nothing is deployed externally yet</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-white/60">
+                    View your app in the <span className="text-fuchsia-400 font-medium">Live Preview</span> tab above.
+                    To put it on the real internet, export your code and deploy it — the Setup Agent walks you through it.
+                  </p>
                   <a
-                    href={state.deploymentUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-fuchsia-400 hover:underline text-sm"
+                    href="/pricing"
+                    className="inline-block text-sm px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white font-medium hover:opacity-90 transition"
                   >
-                    {state.deploymentUrl}
+                    Upgrade to export & deploy
                   </a>
                 </CardContent>
               </Card>

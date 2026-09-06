@@ -221,9 +221,11 @@ export async function executePipeline(projectId: string, idea: string, userId?: 
           project.files.push(...result.files);
           output = {
             files: result.files,
-            url: `https://appforge-${projectId.slice(5, 13)}.vercel.app`,
             deployment: 'Vercel',
             buildStatus: 'success',
+            // NOTE: no deployment URL is set here. The app is NOT deployed —
+            // it lives as a hosted preview inside AppForge. A real URL only
+            // exists after a paid one-click deploy (future Deployment Agent).
           };
           break;
         }
