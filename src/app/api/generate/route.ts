@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createProject, listProjectsForUser } from '@/lib/agents/pipeline';
 import { createServerClient } from '@/lib/supabase/server-client';
 import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
+import { checkBuildQuota } from '@/lib/quota';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +32,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Rate limit reached. You can start a new build in ${Math.ceil(retryAfter / 60)} minutes. Free tier allows ${RATE_LIMITS.generate.limit} builds per hour.` },
         { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+
+    // Tier build quota (free: 1/mo, starter: 5/mo, pro: 10/day guardrail)
+    const quota = await checkBuildQuota(user.id);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: quota.message,
+          quota: { tier: quota.tier, used: quota.used, limit: quota.limit },
+          upgradeUrl: '/pricing',
+        },
+        { status: 403 }
       );
     }
 
