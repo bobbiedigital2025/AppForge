@@ -1,10 +1,84 @@
-import { getProject } from '@/lib/agents/pipeline';
+import { getProjectAnywhere } from '@/lib/agents/pipeline';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Minimal markdown → React renderer for the generated README.
+ * Handles headings, bold/italic, inline code, code blocks, lists, links, tables (basic).
+ * Keeps the preview self-contained without a markdown dependency.
+ */
+function renderMarkdown(md: string) {
+  const blocks = md.split(/```/);
+  const out: React.ReactNode[] = [];
+  let key = 0;
+
+  blocks.forEach((block, blockIdx) => {
+    if (blockIdx % 2 === 1) {
+      // Code block — first line is the language hint
+      const lines = block.split('\n');
+      const lang = lines[0].trim();
+      const code = lines.slice(1).join('\n').replace(/^\n+|\n+$/g, '');
+      out.push(
+        <pre key={key++} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '0.5rem', padding: '1rem', overflowX: 'auto', fontSize: '0.8125rem', fontFamily: 'monospace', color: '#a5f3fc', margin: '1rem 0' }}>
+          {lang && <div style={{ color: '#555', fontSize: '0.6875rem', marginBottom: '0.5rem', textTransform: 'uppercase' }}>{lang}</div>}
+          <code>{code}</code>
+        </pre>
+      );
+      return;
+    }
+
+    const lines = block.split('\n');
+    let list: string[] = [];
+
+    const flushList = () => {
+      if (list.length === 0) return;
+      out.push(
+        <ul key={key++} style={{ margin: '0.75rem 0', paddingLeft: '1.5rem', color: '#bbb' }}>
+          {list.map((item, i) => <li key={i} style={{ margin: '0.375rem 0', fontSize: '0.9375rem', lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: inline(item) }} />)}
+        </ul>
+      );
+      list = [];
+    };
+
+    const inline = (text: string): string =>
+      text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#fff">$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:0.125rem 0.375rem;border-radius:0.25rem;font-size:0.8125rem;color:#a5f3fc">$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#67e8f9;text-decoration:underline">$1</a>');
+
+    lines.forEach((line) => {
+      const t = line.trim();
+      if (/^#{1,6}\s/.test(t)) {
+        flushList();
+        const level = t.match(/^#+/)![0].length;
+        const text = t.replace(/^#+\s*/, '');
+        const sizes = ['1.75rem', '1.375rem', '1.125rem', '1rem', '0.9375rem', '0.875rem'];
+        out.push(
+          <div key={key++} style={{ fontSize: sizes[level - 1], fontWeight: 700, color: '#fff', margin: level <= 2 ? '1.75rem 0 0.75rem' : '1.25rem 0 0.5rem', borderBottom: level <= 2 ? '1px solid rgba(255,255,255,0.08)' : 'none', paddingBottom: level <= 2 ? '0.5rem' : 0 }} dangerouslySetInnerHTML={{ __html: inline(text) }} />
+        );
+      } else if (/^[-*]\s/.test(t) || /^\d+\.\s/.test(t)) {
+        list.push(t.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, ''));
+      } else if (t === '---') {
+        flushList();
+        out.push(<hr key={key++} style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '1.5rem 0' }} />);
+      } else if (t.length > 0) {
+        flushList();
+        out.push(
+          <p key={key++} style={{ margin: '0.75rem 0', color: '#bbb', fontSize: '0.9375rem', lineHeight: 1.7 }} dangerouslySetInnerHTML={{ __html: inline(t) }} />
+        );
+      }
+    });
+    flushList();
+  });
+
+  return <>{out}</>;
+}
+
 export default async function PreviewPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const data = getProject(projectId);
+  const data = await getProjectAnywhere(projectId);
 
   if (!data) {
     return (
@@ -33,6 +107,8 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
   const failedTests = tests.filter(t => t.status === 'failed').length;
   const passedChecks = checks.filter(c => c.status === 'passed').length;
   const failedChecks = checks.filter(c => c.status === 'failed').length;
+
+  const readmeFile = docsFiles.find(f => f.path.endsWith('README.md')) || docsFiles[0];
 
   const statusColor = state.status === 'done' ? '#10b981' : state.status === 'failed' ? '#ef4444' : '#a855f7';
   const statusLabel = state.status === 'done' ? 'Build Complete' : state.status === 'failed' ? 'Build Failed' : 'Building...';
@@ -83,8 +159,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
           .status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; }
           .progress-bar { height: 0.5rem; background: rgba(255,255,255,0.08); border-radius: 9999px; overflow: hidden; margin: 1rem 0; }
           .progress-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #c026d3); border-radius: 9999px; transition: width 0.5s ease; }
-          .tab-bar { display: flex; gap: 0.5rem; padding: 0 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); }
+          .tab-bar { display: flex; gap: 0.5rem; padding: 0 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.06); max-width: 900px; margin: 0 auto; }
           .tab { padding: 0.75rem 1rem; font-size: 0.875rem; color: #666; cursor: pointer; border-bottom: 2px solid transparent; }
+          .tab-btn { background: none; border: none; font-family: inherit; }
           .tab.active { color: #fff; border-bottom-color: #a855f7; }
           .tab:hover { color: #ccc; }
           .preview-footer { border-top: 1px solid rgba(255,255,255,0.06); padding: 2rem 1.5rem; text-align: center; color: #444; font-size: 0.8125rem; }
@@ -134,6 +211,16 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
           </div>
         </div>
 
+        {/* View Tabs: App (default) | Docs | Build */}
+        <div className="tab-bar">
+          <button className="tab tab-btn active" data-tab="app">App</button>
+          <button className="tab tab-btn" data-tab="docs">Docs</button>
+          <button className="tab tab-btn" data-tab="build">Build Report</button>
+        </div>
+
+        {/* ============ TAB: THE APP ============ */}
+        <div id="tab-app" className="tab-panel">
+
         {/* Hero */}
         <section className="preview-hero">
           <h1>{state.name}</h1>
@@ -150,10 +237,10 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
           )}
         </section>
 
-        {/* Features */}
+        {/* Features — this is what the app DOES */}
         {specs && specs.features.length > 0 && (
           <section className="preview-section">
-            <h2>Features</h2>
+            <h2>What it does</h2>
             <div className="feature-grid">
               {specs.features.map((f, i) => (
                 <div key={i} className="feature-card">
@@ -163,12 +250,79 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
                   }}>{f.priority}</span>
                   <h3>{f.name}</h3>
                   <p>{f.description}</p>
-                  <div style={{ fontSize: '0.6875rem', color: '#555', marginTop: '0.5rem' }}>{f.complexity} complexity</div>
                 </div>
               ))}
             </div>
           </section>
         )}
+
+        {/* Pages — the actual screens of the app */}
+        {arch?.pageRoutes && arch.pageRoutes.length > 0 && (
+          <section className="preview-section">
+            <h2>Screens</h2>
+            <div className="feature-grid">
+              {arch.pageRoutes.map((r, i) => (
+                <div key={i} className="feature-card">
+                  <span className="route-path" style={{ fontSize: '0.75rem' }}>{r.path}</span>
+                  <h3 style={{ marginTop: '0.375rem' }}>{r.name}</h3>
+                  <p>{r.role}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Data Models — what the app stores */}
+        {arch?.dataModels && arch.dataModels.length > 0 && (
+          <section className="preview-section">
+            <h2>What it stores</h2>
+            <div className="data-models">
+              {arch.dataModels.map((m, i) => (
+                <div key={i} className="model-card">
+                  <h4>{m.name}</h4>
+                  <div className="model-fields">
+                    {m.fields.map((f, j) => (
+                      <div key={j}>{f.name}: {f.type}{f.references ? ` → ${f.references}` : ''}</div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Deployment */}
+        {state.deploymentUrl && (
+          <section className="preview-section">
+            <div style={{ padding: '1.25rem', borderRadius: '0.75rem', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Live deployment</span>
+              <div style={{ marginTop: '0.5rem' }}>
+                <a href={state.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#67e8f9', textDecoration: 'underline', fontSize: '0.9375rem' }}>
+                  {state.deploymentUrl}
+                </a>
+              </div>
+            </div>
+          </section>
+        )}
+
+        </div>{/* end tab-app */}
+
+        {/* ============ TAB: DOCS ============ */}
+        <div id="tab-docs" className="tab-panel" style={{ display: 'none' }}>
+          <section className="preview-section" style={{ maxWidth: '760px', paddingTop: '2rem', paddingBottom: '4rem' }}>
+            {readmeFile ? (
+              renderMarkdown(readmeFile.content)
+            ) : (
+              <div style={{ textAlign: 'center', color: '#555', padding: '4rem 0' }}>
+                <p style={{ fontSize: '1.125rem', marginBottom: '0.5rem' }}>Documentation not ready yet</p>
+                <p style={{ fontSize: '0.875rem' }}>The docs agent writes the README at the end of the build.</p>
+              </div>
+            )}
+          </section>
+        </div>{/* end tab-docs */}
+
+        {/* ============ TAB: BUILD REPORT ============ */}
+        <div id="tab-build" className="tab-panel" style={{ display: 'none' }}>
 
         {/* Tech Stack */}
         {specs && Object.keys(specs.techStack).length > 0 && (
@@ -316,28 +470,23 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
           </section>
         )}
 
-        {/* Deployment */}
-        {state.deploymentUrl && (
-          <section className="preview-section">
-            <h2>Deployment</h2>
-            <div style={{ padding: '1rem', borderRadius: '0.5rem', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Deployed to Vercel</span>
-              <div style={{ marginTop: '0.5rem' }}>
-                <a href={state.deploymentUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#67e8f9', textDecoration: 'underline', fontSize: '0.875rem' }}>
-                  {state.deploymentUrl}
-                </a>
-              </div>
-            </div>
-          </section>
-        )}
+        </div>{/* end tab-build */}
 
         <footer className="preview-footer">
           <p>{state.name} — Live preview by AppForge. Built with AI agents.</p>
           <p style={{ marginTop: '0.25rem' }}>Project ID: {state.id} · {files.length} files · {data.progress}% complete</p>
         </footer>
 
-        {/* Auto-refresh script */}
+        {/* Tab switching + auto-refresh script */}
         <script dangerouslySetInnerHTML={{ __html: `
+          document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+              document.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+              btn.classList.add('active');
+              document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
+            });
+          });
           if (window.parent === window) {
             // Standalone mode — auto-refresh every 3s while building
             setInterval(() => { window.location.reload(); }, 3000);

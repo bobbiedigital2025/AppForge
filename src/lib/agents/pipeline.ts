@@ -353,6 +353,36 @@ export async function getProjectFromSupabase(projectId: string) {
 }
 
 /**
+ * Persistence-aware project loader.
+ * Tries the in-memory store first (live builds), then falls back to
+ * Supabase (persisted projects). Essential on serverless (Vercel),
+ * where the in-memory store is empty once the build function ends.
+ * Returns the same shape as getProject().
+ */
+export async function getProjectAnywhere(projectId: string) {
+  const live = getProject(projectId);
+  if (live) return live;
+
+  const persisted = await loadProjectFromSupabase(projectId);
+  if (!persisted) return null;
+
+  const state = persisted.state;
+  const testTask = state.tasks.find(t => t.role === 'testing' && t.output);
+  const complianceTask = state.tasks.find(t => t.role === 'compliance' && t.output);
+
+  return {
+    state,
+    progress: persisted.progress,
+    agentActivity: [] as object[],
+    files: persisted.files,
+    ai: null as { connected: boolean; model: string } | null,
+    letta: null,
+    testResults: (testTask?.output as { results?: unknown[] } | null)?.results || null,
+    complianceChecks: (complianceTask?.output as { checks?: unknown[] } | null)?.checks || null,
+  };
+}
+
+/**
  * List all projects for a user (from Supabase, falling back to in-memory).
  */
 export async function listProjectsForUser(userId: string) {

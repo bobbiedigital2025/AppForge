@@ -95,7 +95,7 @@ async function callTelnyx(messages: ChatMessage[], systemPrompt: string) {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'minimax/minimax-m2',
+        model: process.env.AI_MODEL || 'MiniMaxAI/MiniMax-M3-MXFP8',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
