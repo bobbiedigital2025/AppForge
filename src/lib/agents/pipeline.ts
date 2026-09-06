@@ -231,16 +231,16 @@ export async function executePipeline(projectId: string, idea: string, userId?: 
         // ─── Phase 7: Docs Agent ───
         case 'docs': {
           if (!hasAIKey()) await delay(1500);
-          const readme = await runDocsAgent(orchestrator.getState(), (level, msg) =>
+          const docs = await runDocsAgent(orchestrator.getState(), (level, msg) =>
             orchestrator.log('docs', level, msg)
           );
-          project.files.push({
-            path: 'README.md',
-            content: readme,
-            agent: 'docs',
-            status: 'generated',
-          });
-          output = { files: [{ path: 'README.md', content: readme, agent: 'docs', status: 'generated' }] };
+          const docFiles = [
+            { path: 'README.md', content: docs.readme, agent: 'docs' as const, status: 'generated' as const },
+            { path: 'INVESTOR_PITCH.md', content: docs.investorPitch, agent: 'docs' as const, status: 'generated' as const },
+            { path: 'REALITY_CHECK.md', content: docs.realityCheck, agent: 'docs' as const, status: 'generated' as const },
+          ].filter(f => f.content.length > 0);
+          project.files.push(...docFiles);
+          output = { files: docFiles };
           break;
         }
 

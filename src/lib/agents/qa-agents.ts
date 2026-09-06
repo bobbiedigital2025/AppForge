@@ -49,11 +49,46 @@ Respond ONLY in valid JSON:
 
 Always cover: GDPR, CCPA, WCAG 2.1 AA, OWASP Top 10, and payment compliance (PCI via Stripe). Add others when relevant to the app domain (HIPAA for health, COPPA for children, SOC 2 for B2B).`;
 
-export const DOCS_AGENT_SYSTEM_PROMPT = `You are a senior technical writer. Given a project specification and architecture, write a complete README.md for the generated application.
+export const DOCS_AGENT_SYSTEM_PROMPT = `You are a senior technical writer AND startup analyst. Given a project specification and architecture, write THREE documents for the generated application, separated by exact delimiter lines.
 
-Respond with the raw markdown only — no JSON wrapping, no code fences around the whole document.
+Respond with markdown only, using EXACTLY this structure:
 
-Include: project title and summary, target audience, feature list, tech stack table, architecture overview, data models, API endpoints, page routes, getting started instructions, testing instructions, deployment instructions with required environment variables, compliance notes, and monetization notes.`;
+===README===
+(the full README.md here)
+===INVESTOR_PITCH===
+(the investor one-pager here)
+===REALITY_CHECK===
+(the honest viability analysis here)
+
+DOCUMENT 1 — README.md: project title and summary, target audience, feature list, tech stack table, architecture overview, data models, API endpoints, page routes, getting started instructions, testing instructions, deployment instructions with required environment variables, compliance notes, and monetization notes.
+
+DOCUMENT 2 — INVESTOR_PITCH.md: a one-page pitch an entrepreneur could hand to an investor or partner. Include: the one-line pitch, the problem, the solution, target market and audience, revenue model with realistic pricing, ROI analysis (cost to build with AppForge subscription vs typical agency/freelance quote of $10,000–$25,000, plus time-to-market savings), competitive advantages, growth path (first 90 days), and the ask. Write it about THIS specific app idea, not generic startup filler. Use realistic, defensible numbers — no hype.
+
+DOCUMENT 3 — REALITY_CHECK.md: an honest viability analysis. Include: strengths of this idea (pros), weaknesses and risks (cons) — be genuinely honest here, every idea has real cons, what to validate first before spending money, the single biggest risk, and a realistic success difficulty rating (easy/moderate/hard/very hard) with one sentence of justification. This document builds trust by telling the truth — do not sugarcoat.`;
+
+/**
+ * Parse the docs agent's three-document response.
+ * Falls back gracefully: if delimiters are missing, treats the whole
+ * response as the README (legacy behavior).
+ */
+export function parseDocsResponse(raw: string): { readme: string; investorPitch: string; realityCheck: string } {
+  const strip = (s: string) => s.replace(/^```markdown\s*/i, '').replace(/```\s*$/, '').trim();
+
+  const readmeMatch = raw.match(/===README===\s*([\s\S]*?)(?====INVESTOR_PITCH===|$)/i);
+  const pitchMatch = raw.match(/===INVESTOR_PITCH===\s*([\s\S]*?)(?====REALITY_CHECK===|$)/i);
+  const realityMatch = raw.match(/===REALITY_CHECK===\s*([\s\S]*?)$/i);
+
+  if (!readmeMatch && !pitchMatch && !realityMatch) {
+    // Legacy single-document response
+    return { readme: strip(raw), investorPitch: '', realityCheck: '' };
+  }
+
+  return {
+    readme: strip(readmeMatch?.[1] || ''),
+    investorPitch: strip(pitchMatch?.[1] || ''),
+    realityCheck: strip(realityMatch?.[1] || ''),
+  };
+}
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -168,21 +203,86 @@ export async function runComplianceAgent(
   return generateDefaultComplianceChecks();
 }
 
+export interface ProjectDocs {
+  readme: string;
+  investorPitch: string;
+  realityCheck: string;
+}
+
 export async function runDocsAgent(
   state: ProjectState,
   log: (level: 'warn', msg: string) => void
-): Promise<string> {
+): Promise<ProjectDocs> {
+  const fallbackReadme = generateDefaultReadme(state);
+
   if (hasAIKey()) {
     try {
       const specs = state.specs!;
       const arch = state.architecture;
-      const prompt = `Write the README.md for this application:\n\nName: ${state.name}\nSummary: ${specs.summary}\nFeatures: ${specs.features.map(f => `${f.name} (${f.priority})`).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\nData models: ${(arch?.dataModels || []).map(m => m.name).join(', ')}\nAPI endpoints: ${(arch?.apiEndpoints || []).map(e => `${e.method} ${e.path}`).join(', ')}\nMonetization: ${specs.monetization}\nCompliance: ${specs.compliance.join(', ')}\n\nRespond with markdown only.`;
-      return await callAI(DOCS_AGENT_SYSTEM_PROMPT, prompt);
+      const prompt = `Write the three documents for this application:\n\nName: ${state.name}\nIdea: ${state.idea}\nSummary: ${specs.summary}\nTarget audience: ${specs.targetAudience}\nFeatures: ${specs.features.map(f => `${f.name} (${f.priority})`).join(', ')}\nTech stack: ${JSON.stringify(specs.techStack)}\nData models: ${(arch?.dataModels || []).map(m => m.name).join(', ')}\nAPI endpoints: ${(arch?.apiEndpoints || []).map(e => `${e.method} ${e.path}`).join(', ')}\nMonetization: ${specs.monetization}\nMarketplace: ${specs.marketplace}\nCompliance: ${specs.compliance.join(', ')}\n\nRespond with the three documents separated by the exact delimiter lines.`;
+      const raw = await callAI(DOCS_AGENT_SYSTEM_PROMPT, prompt);
+      const docs = parseDocsResponse(raw);
+
+      // Ensure nothing comes back empty
+      return {
+        readme: docs.readme || fallbackReadme,
+        investorPitch: docs.investorPitch || generateDefaultInvestorPitch(state),
+        realityCheck: docs.realityCheck || generateDefaultRealityCheck(state),
+      };
     } catch (err) {
       log('warn', `Docs AI call failed, using defaults: ${err instanceof Error ? err.message : 'unknown'}`);
     }
   }
-  return generateDefaultReadme(state);
+  return {
+    readme: fallbackReadme,
+    investorPitch: generateDefaultInvestorPitch(state),
+    realityCheck: generateDefaultRealityCheck(state),
+  };
+}
+
+function generateDefaultInvestorPitch(state: ProjectState): string {
+  const specs = state.specs;
+  return `# Investor One-Pager: ${state.name}
+
+## The Pitch
+${state.name} — ${specs?.summary || state.idea}
+
+## The Problem
+${specs?.targetAudience || 'Target users'} currently solve this with manual workarounds or generic tools not built for them.
+
+## The Solution
+${state.name} delivers: ${(specs?.features || []).slice(0, 3).map(f => f.name).join(', ')}.
+
+## Revenue Model
+${specs?.monetization || 'Subscription-based'}.
+
+## ROI
+Built with AppForge for the cost of a subscription vs. a $10,000–$25,000 agency build — live in days, not months.
+
+## The Ask
+Seeking early users and feedback to validate product-market fit.
+`;
+}
+
+function generateDefaultRealityCheck(state: ProjectState): string {
+  return `# Reality Check: ${state.name}
+
+## Pros
+- Clear target audience: ${state.specs?.targetAudience || 'defined users'}
+- Focused feature set — avoids scope creep
+- Low cost to build and test with AppForge
+
+## Cons
+- Unvalidated demand — the biggest risk for any new product
+- Competition from established generic tools
+- Requires consistent marketing effort post-launch
+
+## Validate First
+Whether ${state.specs?.targetAudience || 'target users'} will actually pay. Talk to 10 potential users before investing further.
+
+## Difficulty Rating
+**Moderate** — the build is the easy part; distribution is the challenge.
+`;
 }
 
 // ─── Default generators (fallback / demo mode) ───────────────────
