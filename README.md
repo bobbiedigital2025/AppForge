@@ -1,8 +1,8 @@
-# AppForge
+#BoDiGi 2.0™️         
 
 **AI-powered application factory.** One prompt in — a full marketplace-ready app comes out.
 
-AppForge uses a team of 9 specialized AI agents to take a single text description and produce a complete, deployable application: frontend, backend, database schema, API routes, tests, compliance docs, and deployment configuration.
+BoDiGi 2.0™️ uses a team of 9 specialized AI agents to take a single text description and produce a complete, deployable application: frontend, backend, database schema, API routes, tests, compliance docs, and deployment configuration.
 
 ## How It Works
 
@@ -45,7 +45,7 @@ AppForge uses a team of 9 specialized AI agents to take a single text descriptio
 | Source code export | — | ZIP | ZIP + GitHub | ZIP + GitHub |
 | Backend included | — | Yes | Yes | Yes |
 | Custom domain | — | — | Yes | Yes |
-| Branding | AppForge badge | None | None | None |
+| Branding | BoDiGi 2.0™️ badge | None | None | None |
 | Support | Community | Email | Priority | Phone + SLA |
 
 ## Getting Started
