@@ -62,8 +62,8 @@ const plans: Plan[] = [
     features: [
       'Unlimited AI-generated apps',
       'GitHub export',
-      'Custom domain',
-      'Unlimited previews',
+      'Preview never expires — your apps stay live',
+      'Deploy-ready code — connect your own domain',
       'Priority AI pipeline',
       'Priority support',
     ],
