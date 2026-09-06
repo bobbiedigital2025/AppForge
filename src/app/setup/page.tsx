@@ -142,7 +142,7 @@ export default function SetupPage() {
             Get Your API Keys
           </h2>
           <p className="text-white/60 max-w-xl mx-auto">
-            AppForge needs a few API keys to work. This guide walks you through getting each one,
+            BoDiGi 2.0 needs a few API keys to work. This guide walks you through getting each one,
             keeping them safe, and deploying your first app with real results.
           </p>
         </div>

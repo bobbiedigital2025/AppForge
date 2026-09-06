@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy Policy — AppForge',
+  title: 'Privacy Policy — BoDiGi 2.0',
 };
 
 export default function PrivacyPage() {
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">10. Children's Privacy</h2>
-            <p>AppForge is not intended for users under 13. We do not knowingly collect data from children under 13.</p>
+            <p>BoDiGi 2.0 is not intended for users under 13. We do not knowingly collect data from children under 13.</p>
           </section>
 
           <section>
@@ -83,7 +83,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">12. Contact</h2>
-            <p>For privacy questions or data requests, contact us through the AppForge platform.</p>
+            <p>For privacy questions or data requests, contact us through the BoDiGi 2.0 platform.</p>
           </section>
         </div>
 

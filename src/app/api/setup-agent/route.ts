@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server-client';
 import { rateLimit, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
-const SETUP_AGENT_SYSTEM_PROMPT = `You are the AppForge Setup Agent — a friendly, patient AI assistant who helps users through every step after their app is generated: API key setup, deployment troubleshooting, AND post-deployment customization.
+const SETUP_AGENT_SYSTEM_PROMPT = `You are the BoDiGi 2.0 Setup Agent — a friendly, patient AI assistant who helps users through every step after their app is generated: API key setup, deployment troubleshooting, AND post-deployment customization.
 
 Your personality:
 - Warm and encouraging — users are often frustrated when they reach you because their deployment failed

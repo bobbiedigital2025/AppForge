@@ -39,7 +39,7 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">AppForge</h1>
+          <h1 className="text-3xl font-bold text-white">BoDiGi 2.0</h1>
           <p className="text-slate-400 mt-2">Sign in to your dashboard</p>
         </div>
 
@@ -131,7 +131,7 @@ function LoginForm() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          <Link href="/" className="hover:text-slate-300 transition">← Back to AppForge</Link>
+          <Link href="/" className="hover:text-slate-300 transition">← Back to BoDiGi 2.0</Link>
         </p>
       </div>
     </div>

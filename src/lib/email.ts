@@ -8,7 +8,7 @@
  */
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
-const FROM_ADDRESS = process.env.EMAIL_FROM || 'AppForge <notifications@appforge.dev>';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'BoDiGi 2.0 <notifications@appforge.dev>';
 
 interface SendEmailOptions {
   to: string;
@@ -59,11 +59,11 @@ function baseTemplate(content: string): string {
   <div style="max-width:560px;margin:0 auto;padding:40px 24px;">
     <div style="text-align:center;margin-bottom:32px;">
       <div style="display:inline-block;width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#8b5cf6,#d946ef);line-height:48px;font-size:24px;">⚡</div>
-      <h1 style="color:#fff;font-size:20px;margin:12px 0 0;">AppForge</h1>
+      <h1 style="color:#fff;font-size:20px;margin:12px 0 0;">BoDiGi 2.0</h1>
     </div>
     ${content}
     <p style="color:#525252;font-size:12px;text-align:center;margin-top:40px;">
-      AppForge — AI-powered application factory<br>
+      BoDiGi 2.0 — AI-powered application factory<br>
       <a href="https://bobbiedigital2025-appforge-dev.vercel.app" style="color:#8b5cf6;">appforge.dev</a>
     </p>
   </div>
@@ -94,11 +94,11 @@ export async function sendExpiryWarningEmail(to: string, projectName: string, da
 export async function sendUpgradeConfirmationEmail(to: string, tierName: string) {
   return sendEmail({
     to,
-    subject: `Welcome to AppForge ${tierName}!`,
+    subject: `Welcome to BoDiGi 2.0 ${tierName}!`,
     html: baseTemplate(`
       <h2 style="color:#fff;font-size:18px;">You're upgraded! 🎉</h2>
       <p style="color:#a3a3a3;font-size:14px;line-height:1.6;">
-        Welcome to <strong style="color:#fff;">AppForge ${tierName}</strong>.
+        Welcome to <strong style="color:#fff;">BoDiGi 2.0 ${tierName}</strong>.
         Your previews never expire, and you now have full source code export access.
       </p>
       <p style="color:#a3a3a3;font-size:14px;line-height:1.6;">

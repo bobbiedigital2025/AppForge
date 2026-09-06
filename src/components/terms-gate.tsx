@@ -69,7 +69,7 @@ export function TermsGate({ onAccept }: TermsGateProps) {
               <li>Your app will be deployed as a <strong>live preview</strong> for 7 days</li>
               <li>After 7 days, the preview goes offline unless you upgrade</li>
               <li>Source code export is available on paid plans only</li>
-              <li>Free tier includes "Built with AppForge" branding</li>
+              <li>Free tier includes "Built with BoDiGi 2.0" branding</li>
             </ul>
           </div>
 

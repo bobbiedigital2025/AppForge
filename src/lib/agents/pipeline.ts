@@ -224,7 +224,7 @@ export async function executePipeline(projectId: string, idea: string, userId?: 
             deployment: 'Vercel',
             buildStatus: 'success',
             // NOTE: no deployment URL is set here. The app is NOT deployed —
-            // it lives as a hosted preview inside AppForge. A real URL only
+            // it lives as a hosted preview inside BoDiGi 2.0. A real URL only
             // exists after a paid one-click deploy (future Deployment Agent).
           };
           break;
@@ -379,6 +379,7 @@ export async function getProjectAnywhere(projectId: string) {
     files: persisted.files,
     ai: null as { connected: boolean; model: string } | null,
     letta: null,
+    userId: (persisted as { userId?: string }).userId || null,
     testResults: (testTask?.output as { results?: unknown[] } | null)?.results || null,
     complianceChecks: (complianceTask?.output as { checks?: unknown[] } | null)?.checks || null,
   };

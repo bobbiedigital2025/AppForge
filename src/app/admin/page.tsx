@@ -119,7 +119,7 @@ export default function AdminPage() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
             <Shield className="w-4 h-4" />
           </div>
-          <h1 className="font-semibold">AppForge Admin</h1>
+          <h1 className="font-semibold">BoDiGi 2.0 Admin</h1>
           <Badge variant="info" className="ml-2">Admin Panel</Badge>
         </div>
         <div className="flex items-center gap-2">

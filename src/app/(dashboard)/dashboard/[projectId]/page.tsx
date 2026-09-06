@@ -121,7 +121,7 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
   const [setupAgentOpen, setSetupAgentOpen] = useState(false);
 
   // Detect if project has build issues (failed tasks). Missing deploymentUrl is NOT
-  // an issue — apps are hosted previews inside AppForge, not external deployments.
+  // an issue — apps are hosted previews inside BoDiGi 2.0, not external deployments.
   const hasDeploymentIssues = data?.state?.tasks?.some(t => t.status === 'failed');
   const missingKeys = hasDeploymentIssues ? ['TELNYX_API_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] : [];
 
@@ -502,7 +502,7 @@ export default function DashboardPage({ params }: { params: Promise<{ projectId:
               <Card>
                 <CardHeader>
                   <CardTitle>Hosted Preview</CardTitle>
-                  <CardDescription>Your app lives here inside AppForge — nothing is deployed externally yet</CardDescription>
+                  <CardDescription>Your app lives here inside BoDiGi 2.0 — nothing is deployed externally yet</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-sm text-white/60">

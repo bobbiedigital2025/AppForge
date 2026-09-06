@@ -53,7 +53,7 @@ export default function DashboardListPage() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
             <Sparkles className="w-4 h-4" />
           </div>
-          <h1 className="font-semibold">AppForge Dashboard</h1>
+          <h1 className="font-semibold">BoDiGi 2.0 Dashboard</h1>
           {user && (
             <span className="text-sm text-white/40 ml-2">{user.email}</span>
           )}

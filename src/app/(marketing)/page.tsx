@@ -88,7 +88,7 @@ export default function LandingPage() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg">AppForge</span>
+            <span className="font-bold text-lg">BoDiGi 2.0</span>
           </div>
           <div className="flex items-center gap-4 text-sm text-white/60">
             <a href="#how" className="hover:text-white transition-colors">How it works</a>
@@ -239,7 +239,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="border-t border-white/10 mt-20">
           <div className="max-w-7xl mx-auto px-6 py-8 text-center text-sm text-white/40">
-            <p>AppForge — AI-powered application factory. Built with Letta.</p>
+            <p>BoDiGi 2.0 — AI-powered application factory. Built with Letta.</p>
             <div className="flex items-center justify-center gap-4 mt-3">
               <a href="/setup" className="hover:text-white/60 transition">Setup Guide</a>
               <a href="/pricing" className="hover:text-white/60 transition">Pricing</a>

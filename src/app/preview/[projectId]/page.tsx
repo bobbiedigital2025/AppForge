@@ -1,4 +1,5 @@
 import { getProjectAnywhere } from '@/lib/agents/pipeline';
+import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +93,27 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
   }
 
   const { state, files, testResults, complianceChecks } = data;
+
+  // Fetch project owner's tier for branding badge (free tier shows BoDiGi 2.0 branding)
+  let projectTier: string = 'free';
+  try {
+    const ownerId = (data as { userId?: string }).userId;
+    if (ownerId) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tier')
+        .eq('id', ownerId)
+        .single();
+      if (profile?.tier) projectTier = profile.tier;
+    }
+  } catch {
+    // Default to free (show branding) if tier lookup fails — safest for business
+  }
+
   const specs = state.specs;
   const arch = state.architecture;
   const frontendFiles = files.filter(f => f.agent === 'frontend');
@@ -516,7 +538,14 @@ export default async function PreviewPage({ params }: { params: Promise<{ projec
         </div>{/* end tab-build */}
 
         <footer className="preview-footer">
-          <p>{state.name} — Live preview by AppForge. Built with AI agents.</p>
+          {/* BoDiGi 2.0 branding — shown on free-tier previews, removed for paid tiers */}
+          {(!projectTier || projectTier === 'free') && (
+            <div style={{ marginBottom: '1rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '9999px', background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(192,38,211,0.15))', border: '1px solid rgba(168,85,247,0.3)' }}>
+              <span style={{ fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #e879f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '0.02em' }}>BoDiGi 2.0</span>
+              <span style={{ color: '#888', fontSize: '0.8125rem' }}>made by Bobbie Digital</span>
+            </div>
+          )}
+          <p>{state.name} — Live preview by BoDiGi 2.0. Built with AI agents.</p>
           <p style={{ marginTop: '0.25rem' }}>Project ID: {state.id} · {files.length} files · {data.progress}% complete</p>
         </footer>
 

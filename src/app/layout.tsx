@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AppForge — AI-Powered App Factory",
+  title: "BoDiGi 2.0 — AI-Powered App Factory",
   description: "Describe your app idea. AI agents build it for you — frontend, backend, tests, deployment, docs. Marketplace-ready.",
 };
 

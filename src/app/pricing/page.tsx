@@ -25,10 +25,10 @@ const plans: Plan[] = [
     price: 0,
     icon: <Sparkles className="w-6 h-6" />,
     color: 'from-gray-500 to-gray-600',
-    description: 'See what AppForge can do',
+    description: 'See what BoDiGi 2.0 can do',
     features: [
       '1 AI-generated app per month',
-      'Hosted preview inside AppForge',
+      'Hosted preview inside BoDiGi 2.0',
       'README + Investor Pitch + Reality Check docs',
       '7-day preview access',
       'Community support',
@@ -137,7 +137,7 @@ export default function PricingPage() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
-            <h1 className="font-semibold">AppForge Pricing</h1>
+            <h1 className="font-semibold">BoDiGi 2.0 Pricing</h1>
           </div>
           <Button variant="outline" size="sm" onClick={() => window.history.back()}>
             Back

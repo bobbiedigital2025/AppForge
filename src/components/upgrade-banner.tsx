@@ -38,7 +38,7 @@ export function UpgradeBanner() {
   return (
     <div
       role="banner"
-      aria-label="Upgrade your AppForge plan to deploy your app and keep it permanently"
+      aria-label="Upgrade your BoDiGi 2.0 plan to deploy your app and keep it permanently"
       className="w-full bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 px-4 py-2.5 flex items-center justify-center gap-3 text-sm"
     >
       <Rocket className="w-4 h-4 text-white shrink-0" />
